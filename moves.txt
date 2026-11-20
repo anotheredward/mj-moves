@@ -1,0 +1,30 @@
+Move,in,out
+Accordion,rr,rr
+Loop Throughs,bh,bh
+Back Pass,rr,lr
+Manhattan,lr,lr
+Basket,bh,lr
+New Yorker,lr,lr
+Block & Turn,rr,rr
+Outside Turn,lr,lr
+Break Through,lr,rr
+Short First Move,lr,lr
+Catapult,rr,lr
+Shoulder Block,rr,lr
+Figure Of 8,lr,rr
+Squeezebox,bh,lr
+Hatchback,lr,lr
+Step Across,lr,lr
+Hook Turn,rr,lr
+Travelling Return,lr,lr
+Key Turn,rr,lr
+Wurlitzer,lr,lr
+Left Side Change,lr,rr
+Yoyo,rr,lr
+Shoulder Wrap,rr,lr
+Comb,rr,rr
+Slide Break,bh,rr
+First Move,lr,lr
+Wrap & Throw,rl,lr
+Short Manhattan,lr,lr
+

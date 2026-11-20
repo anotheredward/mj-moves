@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Dance State Transition Graph</title>
+
+<script src="https://unpkg.com/cytoscape/dist/cytoscape.min.js"></script>
+
+<style>
+html, body {
+    margin:0;
+    height:100%;
+    font-family:sans-serif;
+}
+
+#container{
+    display:flex;
+    height:100vh;
+}
+
+#cy{
+    flex:1;
+    background:#fafafa;
+}
+
+#sidebar{
+    width:320px;
+    border-left:1px solid #ccc;
+    overflow:auto;
+    padding:15px;
+}
+
+.combo{
+    padding:8px;
+    margin-bottom:8px;
+    border-radius:6px;
+    cursor:pointer;
+}
+
+.combo:hover{
+    background:#eef5ff;
+}
+
+.combo-title{
+    font-weight:bold;
+}
+
+.combo-moves{
+    font-size:14px;
+    color:#555;
+}
+</style>
+</head>
+
+<body>
+
+<div id="container">
+
+<div id="cy"></div>
+
+<div id="sidebar">
+<h2>Common Combinations</h2>
+
+<div id="comboList"></div>
+
+<p style="font-size:13px;color:#666;">
+Hover to highlight the transitions.
+</p>
+
+</div>
+
+</div>
+
+<script>
+
+const moves = [
+["Accordion","rr","rr"],
+["Loop Throughs","bh","bh"],
+["Back Pass","rr","lr"],
+["Manhattan","lr","lr"],
+["Basket","bh","lr"],
+["New Yorker","lr","lr"],
+["Block & Turn","rr","rr"],
+["Outside Turn","lr","lr"],
+["Break Through","lr","rr"],
+["Short First Move","lr","lr"],
+["Catapult","rr","lr"],
+["Shoulder Block","rr","lr"],
+["Figure Of 8","lr","rr"],
+["Squeezebox","bh","lr"],
+["Hatchback","lr","lr"],
+["Step Across","lr","lr"],
+["Hook Turn","rr","lr"],
+["Travelling Return","lr","lr"],
+["Key Turn","rr","lr"],
+["Wurlitzer","lr","lr"],
+["Left Side Change","lr","rr"],
+["Yoyo","rr","lr"],
+["Shoulder Wrap","rr","lr"],
+["Comb","rr","rr"],
+["Slide Break","bh","rr"],
+["First Move","lr","lr"],
+["Wrap & Throw","rl","lr"],
+["Short Manhattan","lr","lr"]
+];
+
+const combinations = [
+[1,["Basket","Manhattan","Step Across"]],
+[2,["Short First Move","Break Through","Hook Turn"]],
+[3,["Yoyo","Back Pass","Figure Of 8"]],
+[4,["Accordion","Shoulder Block","Block & Turn"]],
+[5,["Manhattan","Left Side Change","Key Turn"]],
+[6,["Step Across","Wurlitzer","Short First Move"]],
+[7,["Basket","Loop Throughs","Hatchback"]],
+[8,["Squeezebox","Figure Of 8","Catapult"]],
+[10,["Shoulder Block","Accordion","Yoyo"]],
+[11,["Short First Move","Loop Throughs","New Yorker"]],
+[12,["Catapult","Break Through","Block & Turn"]],
+[13,["Squeezebox","Left Side Change","Back Pass"]]
+];
+
+const elements=[];
+
+["rr","lr","rl","bh"].forEach(id=>{
+    elements.push({
+        data:{
+            id:id,
+            label:id
+        }
+    });
+});
+
+moves.forEach(([move,from,to],i)=>{
+
+    elements.push({
+        data:{
+            id:"e"+i,
+            move:move,
+            source:from,
+            target:to
+        }
+    });
+
+});
+
+const cy = cytoscape({
+
+container:document.getElementById("cy"),
+
+elements,
+
+style:[
+
+{
+selector:"node",
+style:{
+'label':'data(label)',
+'text-valign':'center',
+'text-halign':'center',
+'background-color':'#2d7ff9',
+'color':'white',
+'font-size':18,
+'font-weight':'bold',
+'width':60,
+'height':60
+}
+},
+
+{
+selector:"edge",
+style:{
+'label':'data(move)',
+'curve-style':'bezier',
+'control-point-step-size':45,
+'target-arrow-shape':'triangle',
+'line-color':'#888',
+'target-arrow-color':'#888',
+'font-size':11,
+'text-rotation':'autorotate',
+'text-background-opacity':1,
+'text-background-color':'white',
+'text-background-padding':2,
+'width':2
+}
+},
+
+{
+selector:".dim",
+style:{
+'opacity':0.1
+}
+},
+
+{
+selector:".highlight",
+style:{
+'line-color':'#ff9900',
+'target-arrow-color':'#ff9900',
+'width':6,
+'color':'#ff9900',
+'z-index':999
+}
+}
+
+],
+
+layout:{
+name:"circle",
+padding:60
+}
+
+});
+
+function clearHighlight(){
+
+cy.elements().removeClass("dim");
+cy.elements().removeClass("highlight");
+
+}
+
+function highlight(moves){
+
+cy.elements().addClass("dim");
+
+cy.nodes().removeClass("dim");
+
+moves.forEach(name=>{
+
+const edge=cy.edges().filter(e=>e.data("move")==name);
+
+edge.removeClass("dim");
+edge.addClass("highlight");
+
+edge.connectedNodes().removeClass("dim");
+
+});
+
+}
+
+const list=document.getElementById("comboList");
+
+combinations.forEach(([id,moves])=>{
+
+const div=document.createElement("div");
+
+div.className="combo";
+
+div.innerHTML=`
+<div class="combo-title">Combination ${id}</div>
+<div class="combo-moves">${moves.join(" → ")}</div>
+`;
+
+div.addEventListener("mouseenter",()=>highlight(moves));
+div.addEventListener("mouseleave",clearHighlight);
+
+list.appendChild(div);
+
+});
+
+</script>
+
+</body>
+</html>
