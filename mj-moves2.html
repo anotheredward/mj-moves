@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Dance State Transition Graph</title>
 
 <script src="https://unpkg.com/cytoscape/dist/cytoscape.min.js"></script>
@@ -16,10 +17,13 @@ html, body {
 #container{
     display:flex;
     height:100vh;
+    height:100dvh;
 }
 
 #cy{
     flex:1;
+    min-width:0;
+    min-height:0;
     background:#fafafa;
 }
 
@@ -28,6 +32,7 @@ html, body {
     border-left:1px solid #ccc;
     overflow:auto;
     padding:15px;
+    box-sizing:border-box;
 }
 
 .combo{
@@ -35,19 +40,142 @@ html, body {
     margin-bottom:8px;
     border-radius:6px;
     cursor:pointer;
+    border:2px solid transparent;
+    -webkit-tap-highlight-color:transparent;
+    user-select:none;
 }
 
 .combo:hover{
     background:#eef5ff;
 }
 
+.combo.active{
+    background:#fff3e0;
+    border-color:#ff9900;
+}
+
 .combo-title{
     font-weight:bold;
+}
+
+.combo-short{
+    display:none;
 }
 
 .combo-moves{
     font-size:14px;
     color:#555;
+}
+
+#controls{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    margin:4px 0 12px;
+}
+
+#controls button{
+    min-width:44px;
+    min-height:44px;
+    font-size:20px;
+    border:1px solid #ccc;
+    border-radius:8px;
+    background:white;
+    cursor:pointer;
+}
+
+#caption{
+    flex:1;
+    font-size:14px;
+    color:#333;
+    text-align:center;
+}
+
+#caption .placeholder{
+    color:#888;
+}
+
+.hint{
+    font-size:13px;
+    color:#666;
+}
+
+/* ---------- Mobile / narrow screens ---------- */
+@media (max-width:700px){
+
+    #container{
+        flex-direction:column;
+    }
+
+    #sidebar{
+        width:auto;
+        border-left:none;
+        border-top:1px solid #ccc;
+        padding:8px 10px calc(8px + env(safe-area-inset-bottom));
+        overflow:visible;
+        flex:0 0 auto;
+    }
+
+    #sidebar h2{
+        display:none;
+    }
+
+    /* Combos become a horizontally swipeable row of chips */
+    #comboList{
+        display:flex;
+        gap:8px;
+        overflow-x:auto;
+        scroll-snap-type:x proximity;
+        padding-bottom:4px;
+        -webkit-overflow-scrolling:touch;
+    }
+
+    .combo{
+        flex:0 0 auto;
+        margin:0;
+        min-width:44px;
+        min-height:44px;
+        box-sizing:border-box;
+        display:flex;
+        align-items:center;
+        justify-content:center;
+        padding:0 12px;
+        border:2px solid #ccc;
+        border-radius:22px;
+        scroll-snap-align:start;
+    }
+
+    .combo:hover{
+        background:none;
+    }
+
+    .combo.active{
+        background:#fff3e0;
+        border-color:#ff9900;
+    }
+
+    .combo-title,
+    .combo-moves{
+        display:none;
+    }
+
+    .combo-short{
+        display:block;
+        font-weight:bold;
+        font-size:16px;
+    }
+
+    #controls{
+        margin:8px 0 0;
+    }
+
+    #caption{
+        font-size:15px;
+    }
+
+    .hint{
+        display:none;
+    }
 }
 </style>
 </head>
@@ -61,10 +189,17 @@ html, body {
 <div id="sidebar">
 <h2>Common Combinations</h2>
 
+<div id="controls">
+<button id="prevBtn" aria-label="Previous combination">‹</button>
+<div id="caption"></div>
+<button id="nextBtn" aria-label="Next combination">›</button>
+</div>
+
 <div id="comboList"></div>
 
-<p style="font-size:13px;color:#666;">
-Hover to highlight the transitions. Numbered moves show the execution order.
+<p class="hint">
+Tap or click a combination to highlight its transitions (hover to preview).
+Numbered moves show the execution order. Tap the empty graph to clear.
 </p>
 
 </div>
@@ -161,6 +296,10 @@ moves.forEach(([move,from,to],i)=>{
 
 });
 
+const compactQuery = window.matchMedia("(max-width:700px)");
+const isCompact = () => compactQuery.matches;
+const fitPadding = () => isCompact() ? 30 : 60;
+
 const cy = cytoscape({
 
 container:document.getElementById("cy"),
@@ -214,6 +353,20 @@ style:{
 },
 
 {
+selector:"edge.compact",
+style:{
+'font-size':13
+}
+},
+
+{
+selector:"edge.hide-label",
+style:{
+'label':''
+}
+},
+
+{
 selector:".dim",
 style:{
 'opacity':0.1
@@ -240,6 +393,15 @@ padding:60
 
 });
 
+// On small screens, only show labels for highlighted moves to avoid clutter.
+function updateLabels(){
+    const compact = isCompact();
+    cy.edges().forEach(edge=>{
+        edge.toggleClass("compact", compact);
+        edge.toggleClass("hide-label", compact && !edge.hasClass("highlight"));
+    });
+}
+
 function clearHighlight(){
 
 cy.elements().removeClass("dim");
@@ -247,9 +409,13 @@ cy.elements().removeClass("highlight");
 
 cy.edges().forEach(edge=>edge.data('edgeLabel', edge.data('move')));
 
+updateLabels();
+
 }
 
 function highlight(moves){
+
+clearHighlight();
 
 cy.elements().addClass("dim");
 
@@ -268,30 +434,108 @@ edge.data('edgeLabel', `${moves.indexOf(name)+1}. ${edge.data('move')}`);
 
 });
 
+updateLabels();
+
 }
 
-const list=document.getElementById("comboList");
+// ---------- Selection state ----------
 
-combinations.forEach(([id,moves])=>{
+const list=document.getElementById("comboList");
+const caption=document.getElementById("caption");
+const comboDivs=[];
+let selected=-1;   // index into combinations, -1 = none
+
+function showSelected(){
+    if(selected<0){
+        clearHighlight();
+    }else{
+        highlight(combinations[selected][1]);
+    }
+}
+
+function select(index){
+
+selected=index;
+
+comboDivs.forEach((div,i)=>div.classList.toggle("active", i===selected));
+
+if(selected<0){
+    caption.innerHTML='<span class="placeholder">Select a combination</span>';
+}else{
+    const [id,moves]=combinations[selected];
+    caption.textContent=`${id}: ${moves.join(" → ")}`;
+    comboDivs[selected].scrollIntoView({block:"nearest",inline:"nearest",behavior:"smooth"});
+}
+
+showSelected();
+
+}
+
+combinations.forEach(([id,moves],i)=>{
 
 const div=document.createElement("div");
 
 div.className="combo";
+div.setAttribute("role","button");
+div.setAttribute("tabindex","0");
 
 div.innerHTML=`
 <div class="combo-title">Combination ${id}</div>
 <div class="combo-moves">${moves.join(" → ")}</div>
+<div class="combo-short">${id}</div>
 `;
 
-div.addEventListener("mouseenter",()=>highlight(moves));
-div.addEventListener("mouseleave",clearHighlight);
+// Tap/click toggles the selection.
+div.addEventListener("click",()=>select(selected===i ? -1 : i));
+div.addEventListener("keydown",e=>{
+    if(e.key==="Enter"||e.key===" "){ e.preventDefault(); div.click(); }
+});
+
+// Hover preview for mouse users only; restores the selection on leave.
+div.addEventListener("pointerenter",e=>{
+    if(e.pointerType==="mouse") highlight(moves);
+});
+div.addEventListener("pointerleave",e=>{
+    if(e.pointerType==="mouse") showSelected();
+});
 
 list.appendChild(div);
+comboDivs.push(div);
 
 });
+
+document.getElementById("prevBtn").addEventListener("click",()=>{
+    select(selected<=0 ? combinations.length-1 : selected-1);
+});
+document.getElementById("nextBtn").addEventListener("click",()=>{
+    select(selected<0 || selected>=combinations.length-1 ? 0 : selected+1);
+});
+
+// Tapping empty graph space clears the selection.
+cy.on("tap",e=>{
+    if(e.target===cy) select(-1);
+});
+
+// ---------- Keep the graph fitted to the screen ----------
+
+let resizeTimer;
+function refit(){
+    clearTimeout(resizeTimer);
+    resizeTimer=setTimeout(()=>{
+        cy.resize();
+        cy.fit(undefined, fitPadding());
+        updateLabels();
+    },150);
+}
+
+window.addEventListener("resize",refit);
+window.addEventListener("orientationchange",refit);
+compactQuery.addEventListener("change",refit);
+
+select(-1);
+cy.fit(undefined, fitPadding());
 
 </script>
 
 </body>
 </html>
-
