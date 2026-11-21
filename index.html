@@ -7768,6 +7768,15 @@ dom.newClose.addEventListener("click", closeNew);
 document.addEventListener("keydown", e=>{ if(e.key === "Escape") closeNew(); });
 
 // =====================================================================
+// Offline: a service worker (sw.js) keeps a copy of the app, so it opens
+// without a connection. Only on a real web address (not file://).
+// =====================================================================
+
+if("serviceWorker" in navigator && location.protocol.startsWith("http")){
+    window.addEventListener("load", ()=>navigator.serviceWorker.register("sw.js").catch(()=>{}));
+}
+
+// =====================================================================
 // Backup & restore: everything the app keeps in this browser (notes,
 // favourites, feel, flashcards, the Practice Log, settings, and - if you
 // choose - the videos attached to the log) saved to one file, and read

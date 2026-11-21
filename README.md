@@ -84,8 +84,9 @@ top). The filled squares show which hands are joined:
   and follow turns and changes of place, details), then grade yourself:
   *Don't know*, *Ok* or *Details perfect*.
 - **Practice Log:** a dated diary of classes and practice sessions, with
-  notes, the combinations you worked on, and a video (from your camera roll
-  or a link).
+  notes, the combinations and moves you worked on (search to add them; a
+  new move's own video shows alongside), and as many labelled videos as
+  you like ("Teachers' demo", "Me"...) from your camera roll or links.
 - **Statistics:**
   - how the moves and class combinations fit together
   - a practice calendar and streaks
@@ -95,6 +96,8 @@ top). The filled squares show which hands are joined:
 ### Everything else
 - Light and dark themes (Auto follows your device), and layouts for phones
   and desktops.
+- **Works offline:** after one visit to the live site, it opens without a
+  connection (videos from links still need one).
 - **Backup & restore** of everything you've saved, optionally including
   videos.
 
@@ -121,6 +124,8 @@ separately from the live site.
 ## How it's built
 
 - `index.html`: the whole app (HTML, CSS and JavaScript in one file).
+- `sw.js`: the service worker that keeps a copy for offline use. The page
+  is fetched fresh when online, so updates arrive straight away.
 - `vendor/cytoscape-3.35.0.min.js`: [Cytoscape.js](https://js.cytoscape.org/)
   draws the graph. The version is pinned because the comet and the line
   highlights read some of its internals (`edgeCurves` / `labelBox`).
