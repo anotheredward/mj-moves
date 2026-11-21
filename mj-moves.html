@@ -236,7 +236,6 @@ body.menu-open #backdrop{
     align-items:center;
     gap:8px;
     min-height:44px;
-    padding-right:44px;           /* room for the close button on phones */
     cursor:pointer;
     list-style:none;
     user-select:none;
@@ -263,10 +262,13 @@ body.menu-open #backdrop{
     font-size:20px;
 }
 
+#menuTop{
+    display:flex;
+    justify-content:flex-end;
+    margin:-8px -6px 0 0;
+}
+
 #closeBtn{
-    position:absolute;
-    top:calc(15px + env(safe-area-inset-top));
-    right:10px;
     min-width:44px;
     min-height:44px;
     font-size:22px;
@@ -306,6 +308,29 @@ body.menu-open #backdrop{
 .combo.active{
     background:var(--accent-soft);
     border-color:var(--accent);
+}
+
+/* The Beginner's Super Combo: a card of its own below the class list */
+.combo.super{
+    flex-direction:column;
+    align-items:flex-start;
+    gap:2px;
+    margin:10px 0 12px;
+    border-color:var(--rule);
+}
+
+.combo.super.active{
+    border-color:var(--accent);
+}
+
+.super-title{
+    font-size:17px;
+    font-weight:bold;
+}
+
+.super-sub{
+    font-size:13px;
+    color:var(--ink-soft);
 }
 
 .combo-num{
@@ -441,12 +466,14 @@ body.menu-open #backdrop{
 <div id="backdrop"></div>
 
 <nav id="menu" aria-label="Menu">
-<button id="closeBtn" aria-label="Close menu">✕</button>
+<div id="menuTop"><button id="closeBtn" aria-label="Close menu">✕</button></div>
 
 <details id="classSection" class="menu-section" open>
 <summary><h2>Class Combinations</h2></summary>
 <div id="comboList"></div>
 </details>
+
+<div id="superSlot"></div>
 
 <p class="hint">Tap on an empty space to clear the combination.</p>
 
@@ -506,7 +533,8 @@ const HAND_TRANSITIONS = [
 ["Shoulder Block",   "Accordion",     "offer L"],
 ["Short First Move", "Loop Throughs", "trace R"],
 ["Loop Throughs",    "Hatchback",     "drop R"],
-["Loop Throughs",    "New Yorker",    "drop R"]
+["Loop Throughs",    "New Yorker",    "drop R"],
+["Squeezebox",       "Hook Turn",     "swap to R"]
 ];
 
 // Moves that can finish in a different hand position when the next move
@@ -529,6 +557,18 @@ const COMBINATIONS = [
 { id:12, moves:["Catapult","Break Through","Block & Turn"] },
 { id:13, moves:["Squeezebox","Left Side Change","Back Pass"] }
 ];
+
+// Every beginner move once, in the shortest order: two hand changes, and
+// Basket keeps both hands so Squeezebox can follow.
+const SUPER_COMBO = {
+    id:null,
+    title:"Beginner's Super Combo",
+    caption:"Super",
+    moves:["Accordion","Yoyo","Back Pass","Figure Of 8","Catapult","Break Through",
+           "Block & Turn","Shoulder Block","New Yorker","Hatchback","Outside Turn",
+           "First Move","Left Side Change","Key Turn","Manhattan","Step Across",
+           "Wurlitzer","Short First Move","Loop Throughs","Basket","Squeezebox","Hook Turn"]
+};
 
 const STATES = ["rr","lr","rl","bh"];
 const MOVE_STATES = new Map(MOVES.map(m=>[m.name, m]));      // name -> {name, from, to, level}
@@ -574,7 +614,11 @@ function planMoves(moves){
         if(!MOVE_STATES.has(a) || !MOVE_STATES.has(b)) console.warn(`Hand transition: unknown move in "${a} > ${b}"`);
         else if(!needsHandChange(a, b)) console.warn(`Hand transition "${a} > ${b}" isn't needed: the moves already link`);
     }
-    for(const combo of COMBINATIONS){
+    const beginner = MOVES.filter(m=>m.level === "beginner").map(m=>m.name);
+    if(SUPER_COMBO.moves.length !== beginner.length || !beginner.every(m=>SUPER_COMBO.moves.includes(m))){
+        console.warn("Beginner's Super Combo doesn't cover every beginner move exactly once");
+    }
+    for(const combo of [...COMBINATIONS, SUPER_COMBO]){
         combo.moves.forEach((name,i)=>{
             if(!MOVE_STATES.has(name)){
                 console.warn(`Combination ${combo.id}: unknown move "${name}"`);
@@ -622,7 +666,7 @@ const fitPadding = () => isCompact() ? 20 : 50;
 // =====================================================================
 
 const dom = Object.fromEntries(
-    ["container","graph","cy","caption","stepHighlight","menu","menuBtn","closeBtn","classSection","showIntro",
+    ["container","graph","cy","caption","stepHighlight","menu","menuBtn","closeBtn","classSection","showIntro","superSlot",
      "backdrop","comboList","prevBtn","nextBtn"].map(id=>[id, document.getElementById(id)])
 );
 
@@ -799,7 +843,7 @@ const cy = cytoscape({
             "label":"data(edgeLabel)",
             "curve-style":"bezier",
             "text-wrap":"wrap",
-            "text-max-width":"180px",
+            "text-max-width":"1000px",       // break only between moves, never inside one
             "text-justification":"center",   // "left" mis-positions wrapped text in Cytoscape
             "line-height":LINE_HEIGHT,
             "font-size":LABEL_SIZE.normal,
@@ -1000,7 +1044,8 @@ function lightUp(edge, label){
 
 // Curve for a connector s -> t that doesn't lie on an existing line
 // between the same two states (in either direction).
-function connectorBow(s, t, note=""){
+// Returns {bow, labelAt}: labelAt = how far along the label sits (0-1).
+function connectorShape(s, t, note=""){
     const taken = [];
     cy.edges(":simple").not(".transition").forEach(e=>{
         if(e.data("source") === s && e.data("target") === t) taken.push(e.data("bow"));
@@ -1017,7 +1062,7 @@ function connectorBow(s, t, note=""){
     const size = labelFontSize();
     measureCtx.font = `italic ${size}px ${FONT}`;
     const halfW = measureCtx.measureText(note).width/2 + 6, halfH = size*LINE_HEIGHT/2 + 4;
-    const hits = bow=>{
+    const cost = (bow, labelAt)=>{
         const qx = (a.x+b.x)/2 + nx*bow, qy = (a.y+b.y)/2 + ny*bow;
         const at = t=>{ const u = 1-t; return [u*u*a.x + 2*u*t*qx + t*t*b.x, u*u*a.y + 2*u*t*qy + t*t*b.y]; };
         let n = 0;
@@ -1025,17 +1070,25 @@ function connectorBow(s, t, note=""){
             const [x,y] = at(k/20);
             if(boxes.some(r=>x > r.x1 && x < r.x2 && y > r.y1 && y < r.y2)) n++;
         }
-        const [lx,ly] = at(0.25);
+        const [lx,ly] = at(labelAt);
         if(boxes.some(r=>lx+halfW > r.x1 && lx-halfW < r.x2 && ly+halfH > r.y1 && ly-halfH < r.y2)) n += 10;
-        return n;
+        return n + Math.abs(labelAt - 0.25);   // prefer a quarter of the way along
     };
     const free = [0, 90, -90, 180, -180].filter(bw=>taken.every(x=>Math.abs(x-bw) >= 60));
-    return free.reduce((best,bw)=>hits(bw) < hits(best) ? bw : best, free[0] ?? 0);
+    let best = { bow:free[0] ?? 0, labelAt:0.25 }, bestCost = Infinity;
+    for(const bow of free){
+        for(const labelAt of [0.25, 0.15, 0.4, 0.6, 0.75]){
+            const c = cost(bow, labelAt);
+            if(c < bestCost){ bestCost = c; best = {bow, labelAt}; }
+        }
+    }
+    return best;
 }
 
 // A dashed connector for a hand transition (exists only while shown).
 function addTransition(from, to, note, index){
     const a = cy.$id(from).position(), b = cy.$id(to).position();
+    const {bow, labelAt} = connectorShape(from, to, note);
     return cy.add({
         group:"edges",
         data:{
@@ -1043,8 +1096,8 @@ function addTransition(from, to, note, index){
             source:from, target:to,
             moves:[], count:1,
             edgeLabel:note, fullLabel:note,
-            bow:connectorBow(from, to, note),
-            labelOffset:Math.hypot(b.x-a.x, b.y-a.y) * 0.25,
+            bow,
+            labelOffset:Math.hypot(b.x-a.x, b.y-a.y) * labelAt,
             loopDirection:0, mx:0, my:0
         },
         classes:"transition highlight"
@@ -1054,27 +1107,46 @@ function addTransition(from, to, note, index){
 // Light up a combination. Each of its edges shows only the combination's
 // moves, numbered; a dashed connector bridges any hand transition.
 // Returns the steps in execution order: {edge, kind, index, line}.
+// On phones, a line carrying this many steps or more lists just the step
+// numbers ("3 · 5 · 8"); the caption names the current move.
+const NUMBERS_ONLY_FROM = 3;
+
 function showCombo(combo){
     cy.edges().addClass("dim");
     const plan = planMoves(combo.moves);
-    // each move is drawn on the line for where it really goes, so a move
-    // with an alternative ending (Basket keeping both hands) sits on that line
-    const lines = new Map();   // edge -> label lines
+    // Each move is drawn on the line for where it really goes, so a move
+    // with an alternative ending (Basket keeping both hands) sits on that line.
+    const onEdge = new Map();   // edge -> [{n, text, step}]
     const steps = [];
     for(const item of plan){
         if(item.kind === "move"){
             const edge = cy.$id(`e:${item.from}|${item.to}`)[0];
             if(!edge) continue;
-            const line = `${item.index+1}. ${item.name}${item.variant ? ` · ${item.variant}` : ""}`;
-            if(!lines.has(edge)) lines.set(edge, []);
-            lines.get(edge).push(line);
-            steps.push({ edge, kind:"move", index:item.index, line:`${item.index+1}. ` });
+            const step = { edge, kind:"move", index:item.index };
+            if(!onEdge.has(edge)) onEdge.set(edge, []);
+            onEdge.get(edge).push({ n:item.index+1, text:`${item.name}${item.variant ? ` · ${item.variant}` : ""}`, step });
+            steps.push(step);
         }else{
-            const conn = addTransition(item.from, item.to, item.note, item.index);
-            steps.push({ edge:conn, kind:"transition", index:item.index });
+            steps.push({ kind:"transition", index:item.index, item });   // edge added below
         }
     }
-    lines.forEach((ls,edge)=>lightUp(edge, ls.join("\n")));
+    onEdge.forEach((entries,edge)=>{
+        if(isCompact() && entries.length >= NUMBERS_ONLY_FROM){
+            entries.forEach(e=>{ e.step.token = `${e.n}`; });
+            lightUp(edge, entries.map(e=>e.n).join(" · "));
+        }else{
+            entries.forEach(e=>{ e.step.line = `${e.n}. `; });
+            lightUp(edge, entries.map(e=>`${e.n}. ${e.text}`).join("\n"));
+        }
+    });
+    // Connectors last, so they can steer clear of the labels just set.
+    updateLabels();
+    graphElements().boundingBox();      // re-measure label boxes now
+    for(const step of steps){
+        if(step.kind !== "transition") continue;
+        step.edge = addTransition(step.item.from, step.item.to, step.item.note, step.index);
+        delete step.item;
+    }
     return steps;
 }
 
@@ -1263,11 +1335,23 @@ function updateStepHighlight(){
     const lh = fs * LINE_HEIGHT;
     const zoom = cy.zoom(), pan = cy.pan();
     const textTop = box.y1 + (box.h - lines.length*lh) / 2;
+    // the whole line, or (numbers-only labels) just this step's number
+    let x = box.x1, w = box.w, text = lines[k];
+    if(step.token){
+        measureCtx.font = `${edge.style("font-style")} ${edge.style("font-weight")} ${fs}px ${edge.style("font-family")}`;
+        const parts = lines[k].split(" · ");
+        const at = Math.max(0, parts.indexOf(step.token));
+        const before = at ? parts.slice(0, at).join(" · ") + " · " : "";
+        const lineW = measureCtx.measureText(lines[k]).width;
+        x = box.x1 + (box.w - lineW)/2 + measureCtx.measureText(before).width - 4;
+        w = measureCtx.measureText(step.token).width + 8;
+        text = step.token;
+    }
     Object.assign(dom.stepHighlight.style, {
         display:"block",
-        left:   `${box.x1 * zoom + pan.x}px`,
+        left:   `${x * zoom + pan.x}px`,
         top:    `${(textTop + k*lh) * zoom + pan.y}px`,
-        width:  `${box.w * zoom}px`,
+        width:  `${w * zoom}px`,
         height: `${lh * zoom}px`,
         fontSize:   `${fs * zoom}px`,
         lineHeight: `${lh * zoom}px`,
@@ -1275,7 +1359,7 @@ function updateStepHighlight(){
         fontStyle:  edge.style("font-style"),
         fontWeight: edge.style("font-weight")
     });
-    dom.stepHighlight.textContent = lines[k];
+    dom.stepHighlight.textContent = text;
 }
 
 // =====================================================================
@@ -1317,7 +1401,8 @@ function renderCaption(){
     dom.caption.replaceChildren();
     dom.caption.scrollLeft = 0;
     if(sel?.kind === "combo"){
-        if(sel.combo.id) dom.caption.append(el("span", {className:"combo-id", textContent:`${sel.combo.id}`}));
+        const label = sel.combo.id ?? sel.combo.caption;
+        if(label) dom.caption.append(el("span", {className:"combo-id", textContent:`${label}`}));
         dom.caption.append(...sequenceNodes(sel.combo));
     }else{
         const where = SIDEBAR.matches ? "on the left" : "from ☰";
@@ -1337,7 +1422,9 @@ const slug = name => name.toLowerCase().replace(/&/g, "and").replace(/[^a-z0-9]+
 const MOVE_BY_SLUG = new Map(MOVES.map(({name})=>[slug(name), name]));
 
 // The class combination with exactly these moves, if there is one.
-const classCombo = moves => COMBINATIONS.find(c=>sameMoves(c.moves, moves));
+// The named combination (class or super) with exactly these moves, if any.
+const MENU_COMBOS = [SUPER_COMBO, ...COMBINATIONS];
+const classCombo = moves => MENU_COMBOS.find(c=>sameMoves(c.moves, moves));
 
 function comboUrl(combo){
     const params = [];
@@ -1370,7 +1457,7 @@ function writeUrl(combo){
     catch{ /* some browsers refuse history changes on file:// pages */ }
 }
 
-const comboLinks = new Map();   // class combination -> its menu link
+const comboLinks = new Map();   // named combination -> its menu link
 
 function select(selection, {updateUrl=true}={}){
     state.selection = selection;
@@ -1417,29 +1504,42 @@ function setPreview(preview){
     render();
 }
 
+// A menu entry for a combination: a real link, so "open in new tab" and
+// "copy link" work, that selects it in place when clicked.
+function comboLink(combo, ...content){
+    const btn = el("a", {className:"combo", href:comboUrl(combo)}, ...content);
+    btn.addEventListener("click", e=>{
+        if(e.ctrlKey || e.metaKey || e.shiftKey || e.altKey || e.button !== 0) return;
+        e.preventDefault();
+        state.preview = null;
+        selectCombo(combo);
+        closeMenu();
+    });
+    // hover preview for mouse users (visible beside the menu on desktop)
+    btn.addEventListener("pointerenter", e=>{
+        if(e.pointerType === "mouse") setPreview({kind:"combo", combo});
+    });
+    btn.addEventListener("pointerleave", e=>{
+        if(e.pointerType === "mouse") setPreview(null);
+    });
+    comboLinks.set(combo, btn);
+    return btn;
+}
+
 function buildMenu(){
+    const superLink = comboLink(SUPER_COMBO,
+        el("span", {className:"super-title", textContent:SUPER_COMBO.title}),
+        el("span", {className:"super-sub", textContent:`Every beginner move · ${SUPER_COMBO.moves.length} moves`}));
+    superLink.classList.add("super");
+    superLink.setAttribute("aria-label", `${SUPER_COMBO.title}: every beginner move, ${SUPER_COMBO.moves.length} moves`);
+    dom.superSlot.append(superLink);
+
     for(const combo of COMBINATIONS){
-        // a real link, so "open in new tab" / "copy link" work too
-        const btn = el("a", {className:"combo", href:comboUrl(combo)},
+        const btn = comboLink(combo,
             el("span", {className:"combo-num", textContent:`${combo.id}`}),
             el("span", {className:"combo-moves"}, ...sequenceNodes(combo)));
         btn.setAttribute("aria-label", `Combination ${combo.id}: ${combo.moves.join(", ")}`);
-        btn.addEventListener("click", e=>{
-            if(e.ctrlKey || e.metaKey || e.shiftKey || e.altKey || e.button !== 0) return;
-            e.preventDefault();
-            state.preview = null;
-            selectCombo(combo);
-            closeMenu();
-        });
-        // hover preview for mouse users (visible beside the menu on desktop)
-        btn.addEventListener("pointerenter", e=>{
-            if(e.pointerType === "mouse") setPreview({kind:"combo", combo});
-        });
-        btn.addEventListener("pointerleave", e=>{
-            if(e.pointerType === "mouse") setPreview(null);
-        });
         dom.comboList.append(btn);
-        comboLinks.set(combo, btn);
     }
 }
 
