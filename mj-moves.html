@@ -4740,10 +4740,11 @@ function flashStatsCard(){
 
 function statsCards(){
     return [headlineCard(), calendarCard(),
-        feelOverviewCard(), comboFeelCard(), feelGridCard(),
         moveUsageCard(),
         el("div", {className:"stats-stack"}, positionsCard(), possibilitiesCard()),
-        flowCard(), practiceCard(), flashStatsCard()];
+        flowCard(), practiceCard(),
+        feelOverviewCard(), comboFeelCard(), feelGridCard(),
+        flashStatsCard()];
 }
 
 function openStats(){
