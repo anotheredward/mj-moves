@@ -421,6 +421,18 @@ body.menu-open #backdrop{
     color:var(--accent);
 }
 
+/* share a link to the combination being shown (top bar) */
+#topbar #shareBtn{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:0;
+}
+
+#topbar #shareBtn[hidden]{
+    display:none;
+}
+
 /* number column used for a label in the Favourites list */
 .combo-num.tag{
     font-size:11px;
@@ -723,6 +735,9 @@ body.menu-open #backdrop{
 <button id="prevBtn" aria-label="Previous combination">‹</button>
 <div id="caption"></div>
 <button id="favBtn" class="star" aria-pressed="false" hidden>☆</button>
+<button id="shareBtn" aria-label="Share a link to this combination" title="Share link" hidden>
+<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3"/><path d="M7 8l5-5 5 5"/><path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7"/></svg>
+</button>
 <button id="nextBtn" aria-label="Next combination">›</button>
 </div>
 
@@ -1008,7 +1023,7 @@ const fitPadding = () => isCompact() ? 20 : 50;
 // =====================================================================
 
 const dom = Object.fromEntries(
-    ["container","graph","cy","caption","stepHighlight","menu","menuBtn","closeBtn","classSection","showIntro","superSlot","toast","randomSection","lengthGroup","loopCombo","generateBtn","favBtn","favList","shuffleBtn","replaceBtn","avoidChanges",
+    ["container","graph","cy","caption","stepHighlight","menu","menuBtn","closeBtn","classSection","showIntro","superSlot","toast","randomSection","lengthGroup","loopCombo","generateBtn","favBtn","shareBtn","favList","shuffleBtn","replaceBtn","avoidChanges",
      "backdrop","comboList","prevBtn","nextBtn"].map(id=>[id, document.getElementById(id)])
 );
 
@@ -1984,7 +1999,7 @@ function startRename(combo, row){
 // The ☆ in the top bar favourites whatever combination is selected.
 function updateFavButton(){
     const combo = state.selection?.kind === "combo" ? state.selection.combo : null;
-    dom.favBtn.hidden = !combo;
+    dom.favBtn.hidden = dom.shareBtn.hidden = !combo;
     if(!combo) return;
     const {fav} = statOf(combo);
     dom.favBtn.textContent = fav ? "★" : "☆";
@@ -2090,6 +2105,27 @@ renderFavourites();
 dom.favBtn.addEventListener("click", ()=>{
     if(state.selection?.kind === "combo") toggleFavourite(state.selection.combo);
 });
+dom.shareBtn.addEventListener("click", ()=>{
+    if(state.selection?.kind === "combo") shareCombo(state.selection.combo);
+});
+
+// Share a link to a combination: the phone's share sheet where there is one,
+// otherwise copy it. Built from the combination rather than read from the
+// address bar, which file:// pages may not have been able to update.
+async function shareCombo(combo){
+    const url = new URL(comboUrl(combo), location.href).href;
+    const title = comboName(combo);
+    if(navigator.share && matchMedia("(pointer: coarse)").matches){
+        try{ await navigator.share({ title, url }); return; }
+        catch(e){ if(e.name === "AbortError") return; }   // cancelled; else fall back to copying
+    }
+    try{
+        await navigator.clipboard.writeText(url);
+        showToast(`Link to ${title} copied`);
+    }catch{
+        window.prompt("Copy this link:", url);
+    }
+}
 
 // ---------------------------------------------------------------------
 // Random Combo: a random first move, then moves that each start where the
