@@ -126,6 +126,21 @@ html, body {
 
 /* Caption steps are chips; the one the comet is on is filled, so the
    caption doubles as a progress indicator. */
+/* an alternative ending, e.g. Basket "keep both", tagged onto the move */
+.step .variant,
+.combo-moves .variant{
+    font-size:0.78em;
+    font-style:italic;
+    margin-left:5px;
+    padding:0 5px;
+    border-radius:8px;
+    background:rgba(0,0,0,0.07);
+}
+
+.combo-moves .variant{
+    color:var(--accent-text);
+}
+
 #caption .step{
     display:inline-block;
     border-radius:10px;
@@ -400,10 +415,15 @@ const MOVES = [
 const HAND_TRANSITIONS = [
 ["Shoulder Block",   "Block & Turn",  "swap to R"],
 ["Shoulder Block",   "Accordion",     "offer L"],
-["Basket",           "Loop Throughs", "keep both"],
 ["Short First Move", "Loop Throughs", "trace R"],
 ["Loop Throughs",    "Hatchback",     "drop R"],
 ["Loop Throughs",    "New Yorker",    "drop R"]
+];
+
+// Moves that can finish in a different hand position when the next move
+// needs it: [move, alternative end position, how]
+const ALT_ENDINGS = [
+["Basket", "bh", "keep both"]
 ];
 
 const COMBINATIONS = [
@@ -431,6 +451,30 @@ const needsHandChange = (a, b) => MOVE_STATES.get(a).to !== MOVE_STATES.get(b).f
 const handTransition = (a, b) => TRANSITION_NOTES.get(`${a} > ${b}`) ?? "hand change";
 const sameMoves = (a, b) => a.length === b.length && a.every((m,i)=>m === b[i]);
 
+// How a sequence of moves is danced: where each move really ends (it may
+// use an alternative ending so the next move can follow), and the hand
+// changes needed in between. Returns, in order:
+//   {kind:"move", index, name, from, to, variant}   variant: e.g. "keep both"
+//   {kind:"transition", index, from, to, note}      after move `index`
+function planMoves(moves){
+    const plan = [];
+    moves.forEach((name,i)=>{
+        const st = MOVE_STATES.get(name);
+        if(!st) return;
+        const next = MOVE_STATES.get(moves[i+1]);
+        let to = st.to, variant = null;
+        if(next && to !== next.from){
+            const alt = ALT_ENDINGS.find(([m,end])=>m === name && end === next.from);
+            if(alt) [, to, variant] = alt;
+        }
+        plan.push({ kind:"move", index:i, name, from:st.from, to, variant });
+        if(next && to !== next.from){
+            plan.push({ kind:"transition", index:i, from:to, to:next.from, note:handTransition(name, moves[i+1]) });
+        }
+    });
+    return plan;
+}
+
 // Catch typos early: a misspelt move would otherwise be skipped silently.
 (function validateData(){
     for(const [a,b] of HAND_TRANSITIONS){
@@ -444,7 +488,9 @@ const sameMoves = (a, b) => a.length === b.length && a.every((m,i)=>m === b[i]);
                 return;
             }
             const next = combo.moves[i+1];
-            if(next && MOVE_STATES.has(next) && needsHandChange(name, next) && !TRANSITION_NOTES.has(`${name} > ${next}`)){
+            if(next && MOVE_STATES.has(next) && needsHandChange(name, next) &&
+               !TRANSITION_NOTES.has(`${name} > ${next}`) &&
+               !ALT_ENDINGS.some(([m,end])=>m === name && end === MOVE_STATES.get(next).from)){
                 console.warn(`Combination ${combo.id}: ${name} → ${next} needs a hand transition in HAND_TRANSITIONS`);
             }
         });
@@ -752,7 +798,6 @@ function labelBox(edge, which="main"){
 }
 
 const graphElements = () => cy.elements().not(".pulse");
-const moveEdge = name => cy.edges().filter(e=>e.data("moves").includes(name))[0];
 
 // =====================================================================
 // Labels & fitting
@@ -841,13 +886,37 @@ function lightUp(edge, label){
 
 // Curve for a connector s -> t that doesn't lie on an existing line
 // between the same two states (in either direction).
-function connectorBow(s, t){
+function connectorBow(s, t, note=""){
     const taken = [];
     cy.edges(":simple").not(".transition").forEach(e=>{
         if(e.data("source") === s && e.data("target") === t) taken.push(e.data("bow"));
         if(e.data("source") === t && e.data("target") === s) taken.push(-e.data("bow"));
     });
-    return [0, 90, -90, 180, -180].find(b=>taken.every(x=>Math.abs(x-b) >= 60)) ?? 0;
+    // Of the curves that keep clear of existing lines, pick the one that
+    // crosses the fewest labels. Cytoscape puts the control point `bow`
+    // out from the midpoint; sample that curve against the label boxes.
+    const a = cy.$id(s).position(), b = cy.$id(t).position();
+    const len = Math.hypot(b.x-a.x, b.y-a.y) || 1;
+    const nx = -(b.y-a.y)/len, ny = (b.x-a.x)/len;
+    const boxes = labelBoxes();
+    // the connector's own label sits a quarter of the way along
+    const size = labelFontSize();
+    measureCtx.font = `italic ${size}px ${FONT}`;
+    const halfW = measureCtx.measureText(note).width/2 + 6, halfH = size*LINE_HEIGHT/2 + 4;
+    const hits = bow=>{
+        const qx = (a.x+b.x)/2 + nx*bow, qy = (a.y+b.y)/2 + ny*bow;
+        const at = t=>{ const u = 1-t; return [u*u*a.x + 2*u*t*qx + t*t*b.x, u*u*a.y + 2*u*t*qy + t*t*b.y]; };
+        let n = 0;
+        for(let k=2; k<=18; k++){
+            const [x,y] = at(k/20);
+            if(boxes.some(r=>x > r.x1 && x < r.x2 && y > r.y1 && y < r.y2)) n++;
+        }
+        const [lx,ly] = at(0.25);
+        if(boxes.some(r=>lx+halfW > r.x1 && lx-halfW < r.x2 && ly+halfH > r.y1 && ly-halfH < r.y2)) n += 10;
+        return n;
+    };
+    const free = [0, 90, -90, 180, -180].filter(bw=>taken.every(x=>Math.abs(x-bw) >= 60));
+    return free.reduce((best,bw)=>hits(bw) < hits(best) ? bw : best, free[0] ?? 0);
 }
 
 // A dashed connector for a hand transition (exists only while shown).
@@ -860,7 +929,7 @@ function addTransition(from, to, note, index){
             source:from, target:to,
             moves:[], count:1,
             edgeLabel:note, fullLabel:note,
-            bow:connectorBow(from, to),
+            bow:connectorBow(from, to, note),
             labelOffset:Math.hypot(b.x-a.x, b.y-a.y) * 0.25,
             loopDirection:0, mx:0, my:0
         },
@@ -873,25 +942,25 @@ function addTransition(from, to, note, index){
 // Returns the steps in execution order: {edge, kind, index, line}.
 function showCombo(combo){
     cy.edges().addClass("dim");
-    cy.edges().forEach(edge=>{
-        const own = edge.data("moves");
-        const lines = combo.moves
-            .map((name,i)=>`${i+1}. ${name}`)
-            .filter((_,i)=>own.includes(combo.moves[i]));
-        if(lines.length) lightUp(edge, lines.join("\n"));
-    });
+    const plan = planMoves(combo.moves);
+    // each move is drawn on the line for where it really goes, so a move
+    // with an alternative ending (Basket keeping both hands) sits on that line
+    const lines = new Map();   // edge -> label lines
     const steps = [];
-    combo.moves.forEach((name,i)=>{
-        const edge = moveEdge(name);
-        if(!edge) return;
-        steps.push({ edge, kind:"move", index:i, line:`${i+1}. ` });
-        const next = moveEdge(combo.moves[i+1]);
-        if(next && edge.data("target") !== next.data("source")){
-            const conn = addTransition(edge.data("target"), next.data("source"),
-                                       handTransition(name, combo.moves[i+1]), i);
-            steps.push({ edge:conn, kind:"transition", index:i });
+    for(const item of plan){
+        if(item.kind === "move"){
+            const edge = cy.$id(`e:${item.from}|${item.to}`)[0];
+            if(!edge) continue;
+            const line = `${item.index+1}. ${item.name}${item.variant ? ` · ${item.variant}` : ""}`;
+            if(!lines.has(edge)) lines.set(edge, []);
+            lines.get(edge).push(line);
+            steps.push({ edge, kind:"move", index:item.index, line:`${item.index+1}. ` });
+        }else{
+            const conn = addTransition(item.from, item.to, item.note, item.index);
+            steps.push({ edge:conn, kind:"transition", index:item.index });
         }
-    });
+    }
+    lines.forEach((ls,edge)=>lightUp(edge, ls.join("\n")));
     return steps;
 }
 
@@ -1108,18 +1177,20 @@ const arrow = (text=" → ") => el("span", {className:"arrow", textContent:text}
 // the pulse light up the current one.
 function sequenceNodes(combo){
     const parts = [];
-    combo.moves.forEach((name,i)=>{
-        if(i) parts.push(arrow());
-        const chip = el("span", {className:"step", textContent:name});
-        chip.dataset.step = `move-${i}`;
-        parts.push(chip);
-        const next = combo.moves[i+1];
-        if(next && needsHandChange(name, next)){
-            const tag = el("span", {className:"note", textContent:handTransition(name, next)});
-            tag.dataset.step = `transition-${i}`;
-            parts.push(arrow(), tag);
+    for(const item of planMoves(combo.moves)){
+        if(parts.length) parts.push(arrow());
+        if(item.kind === "move"){
+            const chip = el("span", {className:"step", textContent:item.name});
+            // an alternative ending is a small tag on the move itself
+            if(item.variant) chip.append(el("span", {className:"variant", textContent:item.variant}));
+            chip.dataset.step = `move-${item.index}`;
+            parts.push(chip);
+        }else{
+            const tag = el("span", {className:"note", textContent:item.note});
+            tag.dataset.step = `transition-${item.index}`;
+            parts.push(tag);
         }
-    });
+    }
     return parts;
 }
 
