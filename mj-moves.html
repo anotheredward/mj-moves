@@ -233,7 +233,9 @@ body.menu-open #backdrop{
 }
 
 .combo{
-    display:block;
+    display:flex;
+    align-items:baseline;
+    gap:10px;
     width:100%;
     text-align:left;
     font:inherit;
@@ -248,11 +250,6 @@ body.menu-open #backdrop{
     user-select:none;
 }
 
-.combo-title,
-.combo-moves{
-    display:block;
-}
-
 .combo:hover{
     background:#eef5ff;
 }
@@ -262,25 +259,12 @@ body.menu-open #backdrop{
     border-color:var(--accent);
 }
 
-/* the hand position a combination starts from, beside its title */
-.combo-title{
-    display:flex !important;
-    align-items:center;
-    gap:8px;
-    margin-bottom:2px;
-}
-
-.start-hands{
-    width:26px;
-    height:26px;
-    border:1px solid var(--rule);
-    border-radius:4px;
-    background:white;
-    flex:none;
-}
-
-.combo-title{
+.combo-num{
+    font-size:17px;
     font-weight:bold;
+    min-width:1.3em;
+    text-align:right;
+    flex:none;
 }
 
 .combo-moves{
@@ -291,6 +275,38 @@ body.menu-open #backdrop{
 .hint{
     font-size:13px;
     color:#666;
+}
+
+/* Wide screens: the combinations are always on screen in a sidebar, so
+   there's no menu button, close button or dimmed backdrop. */
+@media (min-width:1000px) and (min-height:501px){
+    body{
+        display:flex;
+        height:100vh;
+        height:100dvh;
+    }
+
+    #menu{
+        position:static;
+        order:-1;
+        flex:0 0 320px;
+        transform:none;
+        transition:none;
+        box-shadow:none;
+        border-right:1px solid var(--rule);
+        height:100%;
+    }
+
+    #container{
+        flex:1;
+        min-width:0;
+    }
+
+    #menuBtn,
+    #closeBtn,
+    #backdrop{
+        display:none;
+    }
 }
 
 @media (prefers-reduced-motion:reduce){
@@ -319,19 +335,15 @@ body.menu-open #backdrop{
 
 <div id="backdrop"></div>
 
-<nav id="menu" aria-label="Common combinations">
+<nav id="menu" aria-label="Class combinations">
 <div id="menu-header">
-<h2>Common Combinations</h2>
+<h2>Class Combinations</h2>
 <button id="closeBtn" aria-label="Close menu">✕</button>
 </div>
 
 <div id="comboList"></div>
 
-<p class="hint">
-Pick a combination to highlight its transitions; numbers show the execution
-order. Use ‹ › to step through them. Tap a line on the graph to see all of
-its moves, or tap empty space to clear.
-</p>
+<p class="hint">Tap on an empty space to clear the combination.</p>
 </nav>
 
 <script>
@@ -429,6 +441,8 @@ const LINE_HEIGHT = 1.3;           // label line height, as a multiple of font s
 const LABEL_SIZE = { normal:15, compact:19 };
 
 const COMPACT = window.matchMedia("(max-width:700px), (max-height:500px)");
+// wide screens show the combinations in a permanent sidebar (see the CSS)
+const SIDEBAR = window.matchMedia("(min-width:1000px) and (min-height:501px)");
 const REDUCED_MOTION = window.matchMedia("(prefers-reduced-motion: reduce)");
 const isCompact = () => COMPACT.matches;
 const labelFontSize = () => isCompact() ? LABEL_SIZE.compact : LABEL_SIZE.normal;
@@ -443,7 +457,7 @@ const dom = Object.fromEntries(
      "backdrop","comboList","prevBtn","nextBtn"].map(id=>[id, document.getElementById(id)])
 );
 
-// selection: what the user picked ({kind:"combo", combo} | {kind:"edge", edge} | null)
+// selection: the combination the user picked ({kind:"combo", combo} | null)
 // preview:   a combination hovered in the menu, shown on the graph only
 const state = { selection:null, preview:null };
 
@@ -852,20 +866,12 @@ function showCombo(combo){
     return steps;
 }
 
-// Light up one edge with its full list (a tapped line).
-function showEdge(edge){
-    cy.edges().addClass("dim");
-    lightUp(edge, edge.data("fullLabel"));
-    return [{ edge, kind:"edge", index:0 }];
-}
-
 // Redraw the graph for the current preview/selection.
 function render(){
     const view = state.preview || state.selection;
     resetGraph();
     let steps = [];
     if(view?.kind === "combo") steps = showCombo(view.combo);
-    else if(view?.kind === "edge") steps = showEdge(view.edge);
     updateLabels();
     if(baseViewport) fitView();
     startPulse(steps, view);
@@ -1017,7 +1023,7 @@ function setActiveStep(j, force=false){
     dom.caption.querySelectorAll(".current").forEach(el=>el.classList.remove("current"));
     updateStepHighlight();
     const step = pulse.steps[j];
-    if(!step || pulse.owner !== state.selection) return;
+    if(!step || pulse.owner !== (state.preview || state.selection)) return;
     const chip = dom.caption.querySelector(`[data-step="${stepKey(step)}"]`);
     if(chip){
         chip.classList.add("current");
@@ -1087,26 +1093,18 @@ function sequenceNodes(combo){
     return parts;
 }
 
-// The hand position a combination starts from, as a tiny node icon.
-function startIcon(combo){
-    const start = MOVE_STATES.get(combo.moves[0])?.from;
-    const img = el("img", {className:"start-hands", src:start ? nodeIcon(start) : "", alt:""});
-    img.title = start ? `Starts in ${start}` : "";
-    return img;
-}
-
+// The caption shows the hovered combination while previewing, otherwise
+// the selection.
 function renderCaption(){
-    const sel = state.selection;
+    const sel = state.preview || state.selection;
     dom.caption.replaceChildren();
     dom.caption.scrollLeft = 0;
     if(sel?.kind === "combo"){
         dom.caption.append(el("span", {className:"combo-id", textContent:`${sel.combo.id}`}),
                            ...sequenceNodes(sel.combo));
-    }else if(sel?.kind === "edge"){
-        const n = sel.edge.data("count");
-        dom.caption.append(`${sel.edge.data("source")} → ${sel.edge.data("target")}: ${n} move${n === 1 ? "" : "s"}`);
     }else{
-        dom.caption.append(el("span", {className:"placeholder", textContent:"Choose a combination from ☰"}));
+        const where = SIDEBAR.matches ? "on the left" : "from ☰";
+        dom.caption.append(el("span", {className:"placeholder", textContent:`Choose a combination ${where}`}));
     }
 }
 
@@ -1121,7 +1119,6 @@ function select(selection){
 }
 
 const selectCombo = combo => select(combo ? {kind:"combo", combo} : null);
-const selectEdge = edge => select({kind:"edge", edge});
 
 function stepCombo(delta){
     const current = state.selection?.kind === "combo" ? COMBINATIONS.indexOf(state.selection.combo) : -1;
@@ -1145,25 +1142,32 @@ function closeMenu(){
     dom.menuBtn.setAttribute("aria-expanded", "false");
     dom.container.inert = false;
     dom.menuBtn.focus({preventScroll:true});
-    if(state.preview){ state.preview = null; render(); }
+    if(state.preview) setPreview(null);
+}
+
+function setPreview(preview){
+    state.preview = preview;
+    renderCaption();
+    render();
 }
 
 function buildMenu(){
     for(const combo of COMBINATIONS){
         const btn = el("button", {type:"button", className:"combo"},
-            el("span", {className:"combo-title"}, startIcon(combo), `Combination ${combo.id}`),
+            el("span", {className:"combo-num", textContent:`${combo.id}`}),
             el("span", {className:"combo-moves"}, ...sequenceNodes(combo)));
-        btn.addEventListener("click", ()=>{ selectCombo(combo); closeMenu(); });
+        btn.setAttribute("aria-label", `Combination ${combo.id}: ${combo.moves.join(", ")}`);
+        btn.addEventListener("click", ()=>{
+            state.preview = null;
+            selectCombo(combo);
+            closeMenu();
+        });
         // hover preview for mouse users (visible beside the menu on desktop)
         btn.addEventListener("pointerenter", e=>{
-            if(e.pointerType !== "mouse") return;
-            state.preview = {kind:"combo", combo};
-            render();
+            if(e.pointerType === "mouse") setPreview({kind:"combo", combo});
         });
         btn.addEventListener("pointerleave", e=>{
-            if(e.pointerType !== "mouse") return;
-            state.preview = null;
-            render();
+            if(e.pointerType === "mouse") setPreview(null);
         });
         dom.comboList.append(btn);
         comboButtons.set(combo, btn);
@@ -1183,14 +1187,8 @@ document.addEventListener("keydown", e=>{ if(e.key === "Escape") closeMenu(); })
 dom.prevBtn.addEventListener("click", ()=>stepCombo(-1));
 dom.nextBtn.addEventListener("click", ()=>stepCombo(+1));
 
-// tap empty space to clear; tap a line to see all of its moves
+// tap empty space to clear the combination
 cy.on("tap", e=>{ if(e.target === cy) selectCombo(null); });
-cy.on("tap", "edge", e=>{
-    const edge = e.target;
-    if(edge.hasClass("transition")) return;
-    if(state.selection?.kind === "edge" && state.selection.edge === edge) selectCombo(null);
-    else selectEdge(edge);
-});
 
 // Re-lay out whenever the graph area changes size (window resize,
 // rotation, caption height) or the phone/desktop breakpoint flips.
@@ -1201,6 +1199,10 @@ const relayoutSoon = ()=>{
 };
 new ResizeObserver(relayoutSoon).observe(dom.graph);
 COMPACT.addEventListener("change", relayoutSoon);
+SIDEBAR.addEventListener("change", ()=>{
+    if(SIDEBAR.matches) closeMenu();
+    renderCaption();
+});
 
 renderCaption();
 applyLayout();
