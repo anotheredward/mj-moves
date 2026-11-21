@@ -2290,6 +2290,92 @@ button.cal-day{
 :root[data-theme="dark"] #statsTip,
 :root[data-theme="dark"] #toast{ background:#3a3d43; }
 
+/* ---------- Secret Notes (poorly hidden) ---------- */
+.secret-btn{
+    display:block;
+    margin:2px auto 0;
+    padding:4px 8px;
+    border:none;
+    background:none;
+    font-size:13px;
+    opacity:0.18;
+    filter:grayscale(1);
+    cursor:pointer;
+    transition:opacity 0.3s, filter 0.3s, transform 0.3s;
+}
+
+.secret-btn:hover,
+.secret-btn:focus-visible{
+    opacity:1;
+    filter:none;
+    transform:scale(1.3) rotate(-8deg);
+}
+
+.secret-page{
+    background:linear-gradient(160deg, #2b1a3a, #3d2347 45%, #1e2340);
+    color:#f3e9ff;
+}
+
+.secret-page .overlay-header{
+    background:rgba(0,0,0,0.25);
+    border-bottom-color:rgba(255,255,255,0.08);
+    color:#f3e9ff;
+}
+
+.secret-page .overlay-close{
+    color:#f3e9ff;
+    font-size:24px;
+}
+
+.secret-page .overlay-close:hover{
+    background:rgba(255,255,255,0.1);
+}
+
+.secret-intro{
+    margin:8px 0 18px;
+    font-size:18px;
+    font-style:italic;
+    line-height:1.6;
+    text-align:center;
+    color:#e2cff5;
+}
+
+.secret-text{
+    display:block;
+    width:100%;
+    min-height:55vh;
+    padding:18px 20px;
+    box-sizing:border-box;
+    border:1px solid rgba(255,255,255,0.15);
+    border-radius:14px;
+    background:
+        repeating-linear-gradient(transparent 0 31px, rgba(255,255,255,0.09) 31px 32px) 0 18px / 100% 32px,
+        rgba(255,255,255,0.04);
+    background-attachment:local;        /* ruled lines under each line of writing */
+    color:#fbf6ff;
+    font:inherit;
+    font-size:17px;
+    line-height:32px;
+    resize:vertical;
+}
+
+.secret-text:focus{
+    outline:2px solid #c9a3f0;
+    outline-offset:2px;
+}
+
+.secret-text::placeholder{
+    color:rgba(243,233,255,0.4);
+    font-style:italic;
+}
+
+.secret-foot{
+    margin:10px 0 0;
+    font-size:13px;
+    text-align:center;
+    color:rgba(243,233,255,0.55);
+}
+
 .backup-open{
     display:flex;
     align-items:center;
@@ -2687,6 +2773,18 @@ button.cal-day{
 <div id="backupBody" class="practice-body"></div>
 </div>
 
+<div id="secretPage" class="overlay-page secret-page" role="dialog" aria-modal="true" aria-labelledby="secretTitle" hidden>
+<header class="overlay-header">
+<h2 id="secretTitle">🔐 Secret Notes</h2>
+<button type="button" id="secretClose" class="overlay-close" aria-label="Lock and close">🔒</button>
+</header>
+<div class="practice-body">
+<p class="secret-intro">📔🗝️<br>Write your hopes and dreams here, stored on your device, secret to only you...</p>
+<textarea id="secretText" class="secret-text" aria-labelledby="secretTitle" placeholder="Dear diary..."></textarea>
+<p class="secret-foot" id="secretFoot"></p>
+</div>
+</div>
+
 <div id="statsPage" class="overlay-page" role="dialog" aria-modal="true" aria-labelledby="statsTitle" hidden>
 <header class="overlay-header">
 <h2 id="statsTitle">Statistics</h2>
@@ -2791,6 +2889,7 @@ Backup &amp; restore
 </button>
 
 <p class="credit"><a href="https://fevah.dance/" target="_blank" rel="noopener">Unofficially inspired by Fevah Modern Jive</a></p>
+<button type="button" id="secretBtn" class="secret-btn" aria-label="Secret Notes" title="Nothing to see here">🔐</button>
 </nav>
 
 <script>
@@ -3039,7 +3138,7 @@ const fitPadding = () => isCompact() ? 20 : 50;
 const dom = Object.fromEntries(
     ["container","graph","cy","caption","comboTitle","stepHighlight","menu","menuBtn","closeBtn","classSection","showIntro","superSlot","toast","randomSection","lengthGroup","loopCombo","generateBtn","favBtn","shareBtn","favList","favCount","movePanel","themeGroup","shuffleBtn","replaceBtn","avoidChanges",
      "backdrop","comboList","buildSection","buildSeq","buildUndo","buildClear","buildFromCurrent","buildMoves",
-     "logBtn","logPage","logBody","logClose","backupBtn","backupPage","backupBody","backupClose","callerBtn","callerPage","callerBody","callerClose","flashBtn","flashPage","flashBody","flashClose","statsFx","statsBtn","statsPage","statsBody","statsClose","statsTip","prevBtn","nextBtn"].map(id=>[id, document.getElementById(id)])
+     "logBtn","logPage","logBody","logClose","backupBtn","backupPage","backupBody","backupClose","secretBtn","secretPage","secretText","secretClose","secretFoot","callerBtn","callerPage","callerBody","callerClose","flashBtn","flashPage","flashBody","flashClose","statsFx","statsBtn","statsPage","statsBody","statsClose","statsTip","prevBtn","nextBtn"].map(id=>[id, document.getElementById(id)])
 );
 
 // selection: the combination the user picked ({kind:"combo", combo} | null)
@@ -6286,6 +6385,7 @@ function backupSummary(data, videoCount){
         [count(parse("mj-moves:move-feel")), "move", "with your own feel"],
         [count(parse("mj-moves:flashcards")), "flashcard", "studied"],
         [count(parse(LOG_KEY)), "log entry", ""],
+        [data["mj-moves:secret-notes"] ? 1 : 0, "secret", "🤫"],
         [videoCount, "video", ""]
     ];
     return lines.filter(([n])=>n).map(([n, word, rest])=>
@@ -6422,6 +6522,44 @@ function closeBackup(){
 dom.backupBtn.addEventListener("click", ()=>{ openPage(dom.backupPage, dom.backupClose); renderBackup(); });
 dom.backupClose.addEventListener("click", closeBackup);
 document.addEventListener("keydown", e=>{ if(e.key === "Escape") closeBackup(); });
+
+
+// =====================================================================
+// Secret Notes: a diary page behind the faint lock at the very bottom of
+// the menu. Saved as you type, on this device only (and in backups).
+// =====================================================================
+
+const SECRET_KEY = "mj-moves:secret-notes";
+
+function secretFoot(){
+    const text = dom.secretText.value.trim();
+    const words = text ? text.split(/\s+/).length : 0;
+    dom.secretFoot.textContent = words
+        ? `🤫 ${words} secret word${words === 1 ? "" : "s"} · kept on this device only`
+        : "🤫 Kept on this device only";
+}
+
+dom.secretBtn.addEventListener("click", ()=>{
+    dom.secretText.value = localStorage.getItem(SECRET_KEY) ?? "";
+    secretFoot();
+    openPage(dom.secretPage, dom.secretClose);
+    dom.secretText.focus();
+});
+dom.secretText.addEventListener("input", ()=>{
+    try{
+        if(dom.secretText.value.trim()) localStorage.setItem(SECRET_KEY, dom.secretText.value);
+        else localStorage.removeItem(SECRET_KEY);
+    }catch{ /* storage full: keep typing anyway */ }
+    secretFoot();
+});
+const closeSecret = ()=>{
+    if(dom.secretPage.hidden) return;
+    dom.secretPage.hidden = true;
+    dom.secretText.value = "";          // not left lying around in the page
+    showToast("🔒 Locked away");
+};
+dom.secretClose.addEventListener("click", closeSecret);
+document.addEventListener("keydown", e=>{ if(e.key === "Escape") closeSecret(); });
 
 renderBuilder();
 
