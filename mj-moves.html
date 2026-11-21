@@ -411,6 +411,83 @@ body.menu-open #backdrop{
 }
 
 /* The Beginner's Super Combo: a card of its own below the class list */
+/* Random Combo controls */
+.random-controls{
+    display:flex;
+    flex-direction:column;
+    gap:6px;
+    padding:4px 8px 8px;
+}
+
+.field{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:12px;
+}
+
+.seg{
+    display:flex;
+    border:1px solid #ccc;
+    border-radius:8px;
+    overflow:hidden;
+}
+
+.seg button{
+    min-width:44px;
+    min-height:40px;
+    border:none;
+    border-left:1px solid #ccc;
+    background:white;
+    color:var(--ink);
+    font:inherit;
+    cursor:pointer;
+}
+
+.seg button:first-child{
+    border-left:none;
+}
+
+.seg button[aria-checked="true"]{
+    background:var(--accent);
+    font-weight:bold;
+}
+
+.check{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    min-height:44px;
+    cursor:pointer;
+}
+
+.check input{
+    width:20px;
+    height:20px;
+    margin:0;
+    accent-color:var(--accent);
+}
+
+.check-note{
+    color:var(--ink-soft);
+    font-size:13px;
+}
+
+.primary{
+    min-height:44px;
+    border:none;
+    border-radius:8px;
+    background:var(--accent);
+    color:var(--ink);           /* dark text on orange: 9:1 */
+    font:inherit;
+    font-weight:bold;
+    cursor:pointer;
+}
+
+.primary:hover{
+    filter:brightness(0.95);
+}
+
 .combo-row.super-row{
     margin:10px 0 12px;
 }
@@ -579,6 +656,21 @@ body.menu-open #backdrop{
 </details>
 
 <div id="superSlot"></div>
+
+<details id="randomSection" class="menu-section" open>
+<summary><h2>Random Combo</h2></summary>
+<div class="random-controls">
+<div class="field">
+<span id="lengthLabel">Moves</span>
+<div class="seg" id="lengthGroup" role="radiogroup" aria-labelledby="lengthLabel"></div>
+</div>
+<label class="check">
+<input type="checkbox" id="loopCombo" checked>
+<span>Loops <span class="check-note">(finishes where it started)</span></span>
+</label>
+<button type="button" id="generateBtn" class="primary">Generate</button>
+</div>
+</details>
 
 <p class="hint">Tap on an empty space to clear the combination.</p>
 
@@ -771,7 +863,7 @@ const fitPadding = () => isCompact() ? 20 : 50;
 // =====================================================================
 
 const dom = Object.fromEntries(
-    ["container","graph","cy","caption","stepHighlight","menu","menuBtn","closeBtn","classSection","showIntro","superSlot","toast",
+    ["container","graph","cy","caption","stepHighlight","menu","menuBtn","closeBtn","classSection","showIntro","superSlot","toast","randomSection","lengthGroup","loopCombo","generateBtn",
      "backdrop","comboList","prevBtn","nextBtn"].map(id=>[id, document.getElementById(id)])
 );
 
@@ -1727,6 +1819,81 @@ function buildMenu(){
 // =====================================================================
 
 buildMenu();
+
+// ---------------------------------------------------------------------
+// Random Combo: a random first move, then moves that each start where the
+// previous one finished (an alternative ending, e.g. Basket keeping both
+// hands, counts). No repeats and no hand changes. With "loops", the last
+// move also leads back into the first.
+// ---------------------------------------------------------------------
+
+const MIN_RANDOM = 2, MAX_RANDOM = 5;
+
+// Can move b follow move a without a hand change?
+const canFollow = (a, b) => {
+    const from = MOVE_STATES.get(b).from;
+    return MOVE_STATES.get(a).to === from || ALT_ENDINGS.some(([m,end])=>m === a && end === from);
+};
+
+const shuffled = items => items.map(v=>[Math.random(), v]).sort((x,y)=>x[0]-y[0]).map(([,v])=>v);
+
+function randomMoves(length, loops){
+    const pool = MOVES
+        .filter(m=>dom.showIntro.checked || m.level !== "intromediate")
+        .map(m=>m.name);
+    // depth-first in random order, so every choice is random but we never
+    // pick a move that leaves no way to finish
+    const extend = seq=>{
+        const last = seq[seq.length-1];
+        if(seq.length === length) return !loops || canFollow(last, seq[0]) ? seq : null;
+        for(const m of shuffled(pool)){
+            if(seq.includes(m) || !canFollow(last, m)) continue;
+            const done = extend([...seq, m]);
+            if(done) return done;
+        }
+        return null;
+    };
+    for(const first of shuffled(pool)){
+        const done = extend([first]);
+        if(done) return done;
+    }
+    return null;
+}
+
+{
+    const LENGTH_KEY = "mj-moves:random-length", LOOPS_KEY = "mj-moves:random-loops";
+    let length = Number(localStorage.getItem(LENGTH_KEY)) || 3;
+    dom.loopCombo.checked = localStorage.getItem(LOOPS_KEY) !== "false";    // on by default
+
+    const lengthButtons = [];
+    for(let n = MIN_RANDOM; n <= MAX_RANDOM; n++){
+        const btn = el("button", {type:"button", textContent:`${n}`});
+        btn.setAttribute("role", "radio");
+        btn.setAttribute("aria-label", `${n} moves`);
+        btn.addEventListener("click", ()=>{
+            length = n;
+            localStorage.setItem(LENGTH_KEY, n);
+            showLength();
+        });
+        lengthButtons.push(btn);
+        dom.lengthGroup.append(btn);
+    }
+    const showLength = ()=>lengthButtons.forEach((b,i)=>b.setAttribute("aria-checked", i + MIN_RANDOM === length));
+    showLength();
+
+    dom.loopCombo.addEventListener("change", ()=>localStorage.setItem(LOOPS_KEY, dom.loopCombo.checked));
+
+    dom.generateBtn.addEventListener("click", ()=>{
+        const moves = randomMoves(length, dom.loopCombo.checked);
+        if(!moves){
+            showToast("No combination fits those settings - try another length");
+            return;
+        }
+        state.preview = null;
+        selectCombo({ id:null, caption:"Random", moves });
+        closeMenu();
+    });
+}
 
 // Show/hide intromediate moves (remembered per device; shown by default).
 {
