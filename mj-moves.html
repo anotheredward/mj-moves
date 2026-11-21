@@ -370,7 +370,7 @@ body.menu-open #backdrop{
     font-weight:bold;
 }
 
-/* "Practised in class 4 times · Undo" message */
+/* "Practiced 4 times · Undo" message */
 #toast{
     position:fixed;
     left:50%;
@@ -411,6 +411,69 @@ body.menu-open #backdrop{
 }
 
 /* The Beginner's Super Combo: a card of its own below the class list */
+/* favourite the combination being shown (top bar) */
+#topbar #favBtn{
+    font-size:22px;
+    color:#b5b5b5;
+}
+
+#topbar #favBtn.on{
+    color:var(--accent);
+}
+
+/* number column used for a label in the Favourites list */
+.combo-num.tag{
+    font-size:11px;
+    font-weight:bold;
+    text-transform:uppercase;
+    letter-spacing:0.04em;
+    color:var(--ink-soft);
+    min-width:3.6em;
+    text-align:left;
+}
+
+.combo-body{
+    display:flex;
+    flex-direction:column;
+    min-width:0;
+}
+
+.combo-name{
+    font-weight:bold;
+    margin-bottom:1px;
+}
+
+.rename{
+    min-width:40px;
+    min-height:34px;
+    border:none;
+    border-radius:8px;
+    background:none;
+    color:#9a9a9a;
+    font-size:16px;
+    cursor:pointer;
+}
+
+.rename:hover{
+    background:#f0f0f0;
+}
+
+.rename-input{
+    flex:1;
+    min-width:0;
+    min-height:44px;
+    padding:0 10px;
+    border:2px solid var(--accent);
+    border-radius:8px;
+    font:inherit;
+}
+
+.fav-empty{
+    margin:4px 8px 8px;
+    font-size:14px;
+    color:var(--ink-soft);
+}
+
 /* Random Combo controls */
 .random-controls{
     display:flex;
@@ -633,6 +696,7 @@ body.menu-open #backdrop{
 <button id="menuBtn" aria-label="Show combinations" aria-controls="menu" aria-expanded="false">☰</button>
 <button id="prevBtn" aria-label="Previous combination">‹</button>
 <div id="caption"></div>
+<button id="favBtn" class="star" aria-pressed="false" hidden>☆</button>
 <button id="nextBtn" aria-label="Next combination">›</button>
 </div>
 
@@ -670,6 +734,11 @@ body.menu-open #backdrop{
 </label>
 <button type="button" id="generateBtn" class="primary">Generate</button>
 </div>
+</details>
+
+<details id="favSection" class="menu-section" open>
+<summary><h2>Favourites</h2></summary>
+<div id="favList"></div>
 </details>
 
 <p class="hint">Tap on an empty space to clear the combination.</p>
@@ -863,7 +932,7 @@ const fitPadding = () => isCompact() ? 20 : 50;
 // =====================================================================
 
 const dom = Object.fromEntries(
-    ["container","graph","cy","caption","stepHighlight","menu","menuBtn","closeBtn","classSection","showIntro","superSlot","toast","randomSection","lengthGroup","loopCombo","generateBtn",
+    ["container","graph","cy","caption","stepHighlight","menu","menuBtn","closeBtn","classSection","showIntro","superSlot","toast","randomSection","lengthGroup","loopCombo","generateBtn","favBtn","favList",
      "backdrop","comboList","prevBtn","nextBtn"].map(id=>[id, document.getElementById(id)])
 );
 
@@ -1598,7 +1667,7 @@ function renderCaption(){
     dom.caption.replaceChildren();
     dom.caption.scrollLeft = 0;
     if(sel?.kind === "combo"){
-        const label = sel.combo.id ?? sel.combo.caption;
+        const label = stats[comboKey(sel.combo)]?.name ?? sel.combo.id ?? sel.combo.caption;
         if(label) dom.caption.append(el("span", {className:"combo-id", textContent:`${label}`}));
         dom.caption.append(...sequenceNodes(sel.combo));
     }else{
@@ -1654,15 +1723,21 @@ function writeUrl(combo){
     catch{ /* some browsers refuse history changes on file:// pages */ }
 }
 
-const comboLinks = new Map();   // named combination -> its menu link
+const comboLinks = new Map();   // menu link -> its combination (a combination can be listed twice)
 
 function select(selection, {updateUrl=true}={}){
     state.selection = selection;
     const combo = selection?.kind === "combo" ? selection.combo : null;
-    comboLinks.forEach((link,c)=>link.classList.toggle("active", !!combo && sameMoves(c.moves, combo.moves)));
+    markActiveLinks();
     if(updateUrl) writeUrl(combo);
+    updateFavButton();
     renderCaption();
     render();
+}
+
+function markActiveLinks(){
+    const combo = state.selection?.kind === "combo" ? state.selection.combo : null;
+    comboLinks.forEach((c,link)=>link.classList.toggle("active", !!combo && sameMoves(c.moves, combo.moves)));
 }
 
 const selectCombo = (combo, options) => select(combo ? {kind:"combo", combo} : null, options);
@@ -1702,60 +1777,161 @@ function setPreview(preview){
 }
 
 // ---------------------------------------------------------------------
-// Favourites and "times practised in class", saved on this device. Keyed by the
+// Favourites (with optional custom names) and "times practiced", saved on
+// this device. Keyed by the
 // moves (not the number), so they survive the class list being renumbered.
 // ---------------------------------------------------------------------
 
 const STATS_KEY = "mj-moves:combo-stats";
 const comboKey = combo => combo.moves.map(slug).join(",");
-const comboName = combo => combo.title ?? `Combination ${combo.id}`;
+const comboName = combo => stats[comboKey(combo)]?.name ?? combo.title ??
+    (combo.id ? `Combination ${combo.id}` : `${combo.moves.length}-move combination`);
 const stats = (()=>{
     try{ return JSON.parse(localStorage.getItem(STATS_KEY)) || {}; }
     catch{ return {}; }
 })();
 const statOf = combo => ({ fav:false, done:0, ...stats[comboKey(combo)] });
-const statButtons = new Map();   // combo -> {star, tick}
+// combo key -> every {star, tick} pair showing it (a combination can be in
+// the class list and the Favourites list at once)
+const statButtons = new Map();
 const timesText = n => n === 1 ? "once" : `${n} times`;
 
 function setStat(combo, change){
     const key = comboKey(combo);
     const value = { ...statOf(combo), ...change };
-    if(!value.fav && !value.done) delete stats[key];
+    if(!value.name) delete value.name;
+    if(!value.fav && !value.done && !value.name) delete stats[key];
     else stats[key] = value;
+    const listChanged = "fav" in change || "name" in change;
     try{ localStorage.setItem(STATS_KEY, JSON.stringify(stats)); }
     catch{ /* storage full or blocked: keep working for this visit */ }
     refreshStats(combo);
+    updateFavButton();
+    if(listChanged){
+        renderFavourites();
+        renderCaption();            // the caption shows a favourite's name
+    }
 }
 
 function refreshStats(combo){
-    const buttons = statButtons.get(combo);
-    if(!buttons) return;
+    const key = comboKey(combo);
+    const sets = [...(statButtons.get(key) || [])].filter(b=>b.star.isConnected);
+    statButtons.set(key, new Set(sets));
+    for(const buttons of sets) paintStats(combo, buttons);
+}
+
+function paintStats(combo, {star, tick}){
     const {fav, done} = statOf(combo);
-    const {star, tick} = buttons;
     star.textContent = fav ? "★" : "☆";
     star.classList.toggle("on", fav);
     star.setAttribute("aria-pressed", fav);
     star.setAttribute("aria-label", `${comboName(combo)}: ${fav ? "remove from" : "add to"} favourites`);
     tick.querySelector(".count").textContent = done || "";
     tick.classList.toggle("on", done > 0);
-    tick.setAttribute("aria-label", `${comboName(combo)}: practised in class ${timesText(done)}. Add one`);
-    tick.title = "Practised in class";
+    tick.setAttribute("aria-label", `${comboName(combo)}: practiced ${timesText(done)}. Add one`);
+    tick.title = "Practiced";
 }
 
-function statControls(combo){
+// Star or unstar; unstarring can be undone (it may remove a row).
+function toggleFavourite(combo){
+    const {fav, favAt} = statOf(combo);
+    if(fav){
+        setStat(combo, {fav:false});
+        showToast(`${comboName(combo)} removed from favourites`, ()=>setStat(combo, {fav:true, favAt}));
+    }else{
+        setStat(combo, {fav:true, favAt:Date.now()});
+    }
+}
+
+function statControls(combo, {rename}={}){
     const star = el("button", {type:"button", className:"star"});
-    star.addEventListener("click", ()=>setStat(combo, {fav:!statOf(combo).fav}));
+    star.addEventListener("click", ()=>toggleFavourite(combo));
     const tick = el("button", {type:"button", className:"tick"},
         el("span", {className:"mark", textContent:"✓"}), el("span", {className:"count"}));
     tick.addEventListener("click", ()=>{
         const before = statOf(combo).done;
         setStat(combo, {done:before + 1});
-        showToast(`${comboName(combo)}: practised in class ${timesText(before + 1)}`,
+        showToast(`${comboName(combo)}: practiced ${timesText(before + 1)}`,
                   ()=>setStat(combo, {done:before}));
     });
-    statButtons.set(combo, {star, tick});
-    refreshStats(combo);
-    return el("div", {className:"combo-actions"}, star, tick);
+    const key = comboKey(combo);
+    if(!statButtons.has(key)) statButtons.set(key, new Set());
+    statButtons.get(key).add({star, tick});
+    paintStats(combo, {star, tick});
+    const actions = el("div", {className:"combo-actions"}, star, tick);
+    if(rename){
+        const edit = el("button", {type:"button", className:"rename", textContent:"✎"});
+        edit.setAttribute("aria-label", `Rename ${comboName(combo)}`);
+        edit.title = "Rename";
+        edit.addEventListener("click", ()=>rename(edit));
+        actions.append(edit);
+    }
+    return actions;
+}
+
+// Swap a favourites row for a text box to name the combination.
+function startRename(combo, row){
+    const input = el("input", {type:"text", className:"rename-input", value:stats[comboKey(combo)]?.name ?? "",
+                               placeholder:"Name this combination", maxLength:40});
+    input.setAttribute("aria-label", "Combination name");
+    let done = false;
+    const finish = save=>{
+        if(done) return;
+        done = true;
+        if(save) setStat(combo, {name:input.value.trim()});
+        else renderFavourites();
+    };
+    input.addEventListener("keydown", e=>{
+        if(e.key === "Enter"){ e.preventDefault(); finish(true); }
+        if(e.key === "Escape"){ e.preventDefault(); e.stopPropagation(); finish(false); }
+    });
+    input.addEventListener("blur", ()=>finish(true));
+    row.replaceChildren(input);
+    input.focus();
+    input.select();
+}
+
+// The ☆ in the top bar favourites whatever combination is selected.
+function updateFavButton(){
+    const combo = state.selection?.kind === "combo" ? state.selection.combo : null;
+    dom.favBtn.hidden = !combo;
+    if(!combo) return;
+    const {fav} = statOf(combo);
+    dom.favBtn.textContent = fav ? "★" : "☆";
+    dom.favBtn.classList.toggle("on", fav);
+    dom.favBtn.setAttribute("aria-pressed", fav);
+    dom.favBtn.setAttribute("aria-label", fav ? "Remove from favourites" : "Add to favourites");
+}
+
+// Favourites: custom combinations (random or from a link) first, newest
+// first, then the named ones in menu order.
+function renderFavourites(){
+    for(const [link] of [...comboLinks].filter(([link])=>dom.favList.contains(link))) comboLinks.delete(link);
+    const favs = Object.entries(stats).filter(([,v])=>v.fav).map(([key,v])=>{
+        const moves = key.split(",").map(s=>MOVE_BY_SLUG.get(s)).filter(Boolean);
+        return { combo: classCombo(moves) ?? { id:null, moves }, favAt: v.favAt || 0 };
+    }).filter(f=>f.combo.moves.length);
+    const rank = f=>{
+        const i = MENU_COMBOS.indexOf(f.combo);
+        return i < 0 ? -1 : (f.combo === SUPER_COMBO ? MENU_COMBOS.length : i);   // super after the class list
+    };
+    favs.sort((a,b)=>rank(a) - rank(b) || b.favAt - a.favAt);
+    const rows = favs.map(({combo})=>{
+        const label = combo.id ? el("span", {className:"combo-num", textContent:`${combo.id}`})
+                    : el("span", {className:"combo-num tag", textContent: combo === SUPER_COMBO ? "Super" : "Custom"});
+        const name = stats[comboKey(combo)]?.name;
+        const body = el("span", {className:"combo-body"},
+            ...(name ? [el("span", {className:"combo-name", textContent:name})] : []),
+            el("span", {className:"combo-moves"}, ...sequenceNodes(combo)));
+        const link = comboLink(combo, label, body);
+        link.setAttribute("aria-label", `${comboName(combo)}: ${combo.moves.join(", ")}`);
+        const row = el("div", {className:"combo-row"}, link);
+        row.append(statControls(combo, {rename:()=>startRename(combo, row)}));
+        return row;
+    });
+    dom.favList.replaceChildren(...(rows.length ? rows
+        : [el("p", {className:"fav-empty", textContent:"No favourites yet. Tap ☆ on a combination to add it."})]));
+    markActiveLinks();
 }
 
 let toastTimer;
@@ -1793,7 +1969,7 @@ function comboLink(combo, ...content){
     btn.addEventListener("pointerleave", e=>{
         if(e.pointerType === "mouse") setPreview(null);
     });
-    comboLinks.set(combo, btn);
+    comboLinks.set(btn, combo);
     return btn;
 }
 
@@ -1819,6 +1995,10 @@ function buildMenu(){
 // =====================================================================
 
 buildMenu();
+renderFavourites();
+dom.favBtn.addEventListener("click", ()=>{
+    if(state.selection?.kind === "combo") toggleFavourite(state.selection.combo);
+});
 
 // ---------------------------------------------------------------------
 // Random Combo: a random first move, then moves that each start where the
