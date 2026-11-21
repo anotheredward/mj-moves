@@ -500,7 +500,7 @@ body.menu-open #backdrop{
     margin:12px 0 4px;
 }
 
-#statsPage{
+.overlay-page{
     --s-blue:#2a78d6;           /* series 1 (beginner, moves that link) */
     --s-orange:#eb6834;         /* series 2 (intromediate, hand changes) */
     --s-aqua:#1baf7a;           /* series 3 (alternative endings) */
@@ -513,11 +513,11 @@ body.menu-open #backdrop{
     overscroll-behavior:contain;
 }
 
-#statsPage[hidden]{
+.overlay-page[hidden]{
     display:none;
 }
 
-#statsHeader{
+.overlay-header{
     position:sticky;
     top:0;
     z-index:1;
@@ -530,12 +530,12 @@ body.menu-open #backdrop{
     border-bottom:1px solid var(--rule);
 }
 
-#statsHeader h2{
+.overlay-header h2{
     margin:0;
     font-size:22px;
 }
 
-#statsClose{
+.overlay-close{
     min-width:44px;
     min-height:44px;
     font-size:22px;
@@ -546,7 +546,7 @@ body.menu-open #backdrop{
     cursor:pointer;
 }
 
-#statsClose:hover{
+.overlay-close:hover{
     background:#f0f0f0;
 }
 
@@ -973,6 +973,581 @@ body.menu-open #backdrop{
     font-size:15px;
 }
 
+/* ---------- Practice: menu buttons ---------- */
+.practice-buttons{
+    display:grid;
+    gap:8px;
+}
+
+.practice-btn{
+    display:flex;
+    align-items:center;
+    gap:12px;
+    padding:8px 12px;
+    text-align:left;
+}
+
+.practice-btn svg{
+    flex:none;
+    color:var(--accent-text);
+}
+
+.practice-btn b{
+    display:block;
+}
+
+.practice-btn small{
+    display:block;
+    font-size:13px;
+    color:var(--ink-soft);
+}
+
+/* ---------- The Statistics button: shine, wiggle, sparks, fireworks ---------- */
+.fx-wrap{
+    position:relative;
+    margin:12px 0 26px;     /* room for sparks to fall */
+}
+
+.stats-open.fancy{
+    position:relative;
+    overflow:hidden;
+    margin:0;
+    min-height:48px;
+    border:none;
+    border-radius:10px;
+    color:white;
+    font:inherit;
+    font-weight:700;
+    letter-spacing:0.02em;
+    cursor:pointer;
+    background:linear-gradient(110deg, #d9480f, #c2255c 45%, #862e9c 75%, #d9480f);
+    background-size:220% 100%;
+    box-shadow:0 3px 12px rgba(194,37,92,0.35);
+    animation:fx-glow 7s ease-in-out infinite alternate, fx-wiggle 6.5s ease-in-out infinite;
+}
+
+.stats-open.fancy:hover{
+    filter:brightness(1.08);
+}
+
+/* two white shine lines sweeping across */
+.stats-open.fancy::before,
+.stats-open.fancy::after{
+    content:"";
+    position:absolute;
+    top:-60%;
+    left:-20%;
+    width:14px;
+    height:220%;
+    background:linear-gradient(transparent, rgba(255,255,255,0.75), transparent);
+    transform:rotate(22deg);
+    animation:fx-shine 3.4s ease-in-out infinite;
+    pointer-events:none;
+}
+
+.stats-open.fancy::after{
+    width:5px;
+    margin-left:22px;
+    animation-delay:0.12s;
+}
+
+@keyframes fx-shine{
+    0%       { left:-20%; }
+    55%, 100%{ left:120%; }
+}
+
+@keyframes fx-glow{
+    from{ background-position:0% 50%; }
+    to  { background-position:100% 50%; }
+}
+
+@keyframes fx-wiggle{
+    0%, 86%, 100%{ transform:rotate(0); }
+    88%{ transform:rotate(-2.5deg) scale(1.02); }
+    90%{ transform:rotate(2.5deg) scale(1.02); }
+    92%{ transform:rotate(-1.5deg); }
+    94%{ transform:rotate(1.5deg); }
+    96%{ transform:rotate(0); }
+}
+
+.spark{
+    position:absolute;
+    width:4px;
+    height:4px;
+    border-radius:50%;
+    pointer-events:none;
+    animation:fx-fall var(--t, 1.1s) ease-in forwards;
+}
+
+@keyframes fx-fall{
+    from{ transform:translate(0, 0); opacity:1; }
+    to  { transform:translate(var(--dx, 0px), 26px) scale(0.4); opacity:0; }
+}
+
+.burst{
+    position:absolute;
+    width:0;
+    height:0;
+    pointer-events:none;
+}
+
+.burst i{
+    position:absolute;
+    left:-2.5px;
+    top:-2.5px;
+    width:5px;
+    height:5px;
+    border-radius:50%;
+    animation:fx-pop 0.75s ease-out forwards;
+}
+
+@keyframes fx-pop{
+    from{ transform:rotate(var(--a)) translateX(0) scale(1.2); opacity:1; }
+    to  { transform:rotate(var(--a)) translateX(var(--r, 18px)) scale(0.3); opacity:0; }
+}
+
+@media (prefers-reduced-motion:reduce){
+    .stats-open.fancy,
+    .stats-open.fancy::before,
+    .stats-open.fancy::after{
+        animation:none;
+    }
+    .stats-open.fancy::before,
+    .stats-open.fancy::after{
+        display:none;
+    }
+}
+
+/* ---------- Build a Combo ---------- */
+.build-seq{
+    margin:2px 0 10px;
+    line-height:1.9;
+    font-size:15px;
+}
+
+.build-seq .step{
+    display:inline-block;
+    padding:0 7px;
+    border-radius:10px;
+    line-height:1.5;
+    background:#f1f1f1;
+}
+
+.build-actions{
+    display:flex;
+    gap:6px;
+    margin-bottom:12px;
+}
+
+.build-actions button{
+    flex:1;
+    min-height:40px;
+    font-size:14px;
+}
+
+.build-actions button:disabled{
+    opacity:0.45;
+    cursor:default;
+}
+
+.build-group{
+    margin:0 0 6px;
+    font-size:13px;
+    font-weight:600;
+    color:var(--ink-soft);
+}
+
+.build-list{
+    display:flex;
+    flex-wrap:wrap;
+    gap:6px;
+    margin-bottom:14px;
+}
+
+.build-move{
+    display:inline-flex;
+    flex-direction:column;
+    align-items:flex-start;
+    min-height:36px;
+    padding:4px 10px;
+    border:1px solid #ccc;
+    border-radius:8px;
+    background:white;
+    color:var(--ink);
+    font:inherit;
+    font-size:14px;
+    text-align:left;
+    cursor:pointer;
+}
+
+.build-move:hover{
+    background:#f5f5f5;
+}
+
+.build-move.flows{
+    border-color:var(--accent);
+    background:var(--accent-soft);
+}
+
+.build-move small{
+    font-size:11px;
+    font-style:italic;
+    color:var(--accent-text);
+}
+
+/* ---------- Move Caller & Flashcards (full-page) ---------- */
+.practice-body{
+    max-width:720px;
+    margin:0 auto;
+    padding:20px 16px;
+    padding-bottom:calc(32px + env(safe-area-inset-bottom));
+    box-sizing:border-box;
+}
+
+.intent{
+    margin:0 0 20px;
+    padding:14px 16px;
+    border-left:4px solid var(--accent);
+    border-radius:0 10px 10px 0;
+    background:white;
+    font-size:15px;
+    line-height:1.5;
+    color:var(--ink-soft);
+}
+
+.intent b{
+    color:var(--ink);
+}
+
+.setting{
+    display:flex;
+    flex-wrap:wrap;
+    align-items:center;
+    justify-content:space-between;
+    gap:8px 16px;
+    padding:12px 0;
+    border-bottom:1px solid var(--rule);
+    font-size:15px;
+}
+
+.setting .hint-text{
+    display:block;
+    font-size:13px;
+    color:var(--ink-faded);
+}
+
+.setting input[type=number]{
+    width:84px;
+    min-height:40px;
+    padding:0 8px;
+    border:1px solid #ccc;
+    border-radius:8px;
+    font:inherit;
+    font-size:16px;
+    text-align:right;
+}
+
+.setting input[type=checkbox]{
+    width:22px;
+    height:22px;
+    accent-color:var(--accent);
+}
+
+.practice-body .seg button{
+    min-width:44px;
+}
+
+.big-action{
+    width:100%;
+    min-height:56px;
+    margin-top:20px;
+    font-size:18px;
+}
+
+.summary-line{
+    margin:14px 0 0;
+    font-size:14px;
+    color:var(--ink-soft);
+}
+
+/* the caller while running */
+.caller-run{
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    text-align:center;
+}
+
+.caller-phase{
+    margin:4px 0 8px;
+    font-size:22px;
+    font-weight:700;
+    letter-spacing:0.04em;
+    text-transform:uppercase;
+    color:var(--accent-text);
+}
+
+.caller-clock{
+    position:relative;
+    width:min(64vw, 260px, 34vh);
+    aspect-ratio:1;
+}
+
+.caller-clock svg{
+    width:100%;
+    height:100%;
+    transform:rotate(-90deg);
+}
+
+.caller-clock .num{
+    position:absolute;
+    inset:0;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    font-size:clamp(56px, 20vw, 96px);
+    font-weight:700;
+    line-height:1;
+}
+
+.caller-clock .num small{
+    margin-top:6px;
+    font-size:15px;
+    font-weight:500;
+    color:var(--ink-soft);
+}
+
+.caller-moves{
+    display:flex;
+    flex-wrap:wrap;
+    justify-content:center;
+    align-items:center;
+    gap:8px 6px;
+    margin:22px 0 6px;
+    min-height:48px;
+}
+
+.caller-moves .cm{
+    padding:6px 14px;
+    border-radius:14px;
+    background:#ececec;
+    font-size:clamp(18px, 5vw, 26px);
+    font-weight:600;
+    transition:background-color 0.2s, color 0.2s;
+}
+
+.caller-moves .cm.now{
+    background:var(--accent);
+    color:var(--ink);
+}
+
+.caller-moves .cm.done{
+    color:var(--ink-faded);
+}
+
+.caller-moves .cn{
+    padding:2px 10px;
+    border:1px dashed var(--accent);
+    border-radius:12px;
+    font-size:clamp(14px, 4vw, 18px);
+    font-style:italic;
+    color:var(--accent-text);
+    background:var(--accent-soft);
+}
+
+.caller-moves .arrow{
+    color:#aaa;
+    font-size:20px;
+}
+
+.caller-count{
+    min-height:22px;
+    font-size:16px;
+    color:var(--ink-soft);
+}
+
+.caller-buttons{
+    display:grid;
+    grid-template-columns:repeat(3, 1fr);
+    gap:8px;
+    width:100%;
+    margin-top:24px;
+}
+
+.caller-buttons button{
+    min-height:52px;
+    font-size:17px;
+}
+
+/* short screens (landscape phones): the clock on the left */
+@media (max-height:500px){
+    .practice-body{
+        padding-top:12px;
+    }
+
+    .caller-run{
+        display:grid;
+        grid-template-columns:auto 1fr;
+        grid-template-areas:"phase moves" "clock moves" "clock count" "clock buttons";
+        column-gap:28px;
+        align-items:center;
+    }
+
+    .caller-phase{ grid-area:phase; margin:0; }
+    .caller-clock{ grid-area:clock; width:min(44vh, 200px); }
+    .caller-clock .num{ font-size:min(18vh, 72px); }
+    .caller-clock .num small{ font-size:13px; }
+    .caller-moves{ grid-area:moves; margin:0; }
+    .caller-count{ grid-area:count; }
+    .caller-buttons{ grid-area:buttons; margin-top:12px; }
+}
+
+/* flashcards */
+.boxes{
+    display:grid;
+    grid-template-columns:repeat(6, 1fr);
+    gap:6px;
+    margin:8px 0 4px;
+    text-align:center;
+    font-size:12px;
+    color:var(--ink-soft);
+}
+
+.boxes .bx{
+    display:flex;
+    flex-direction:column;
+    justify-content:flex-end;
+    height:70px;
+    border-radius:6px;
+    background:#f3f3f3;
+    overflow:hidden;
+}
+
+.boxes .bx span{
+    display:block;
+    background:var(--s-blue);
+    border-radius:4px 4px 0 0;
+}
+
+.boxes .bn{
+    font-size:16px;
+    font-weight:600;
+    color:var(--ink);
+}
+
+.flashcard{
+    margin-top:8px;
+    padding:24px 20px;
+    border:1px solid var(--rule);
+    border-radius:16px;
+    background:white;
+    box-shadow:0 6px 24px rgba(0,0,0,0.06);
+}
+
+.flash-progress{
+    display:flex;
+    justify-content:space-between;
+    font-size:14px;
+    color:var(--ink-soft);
+}
+
+.flash-name{
+    margin:14px 0 4px;
+    font-size:clamp(28px, 8vw, 40px);
+    font-weight:700;
+    text-align:center;
+}
+
+.flash-level{
+    text-align:center;
+    font-size:13px;
+    text-transform:uppercase;
+    letter-spacing:0.06em;
+    color:var(--ink-faded);
+}
+
+.flash-steps{
+    margin:20px 0 0;
+    padding-left:24px;
+    font-size:16px;
+    line-height:1.7;
+}
+
+.flash-holds{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:14px;
+    margin:18px 0 6px;
+    font-size:14px;
+    color:var(--ink-soft);
+    text-align:center;
+}
+
+.flash-holds img{
+    display:block;
+    width:64px;
+    height:64px;
+    margin:0 auto 4px;
+}
+
+.flash-facts{
+    margin:12px 0 0;
+    padding-left:20px;
+    font-size:15px;
+    line-height:1.6;
+}
+
+.flash-notes label{
+    display:block;
+    margin:18px 0 6px;
+    font-weight:600;
+}
+
+.flash-notes textarea{
+    width:100%;
+    min-height:150px;
+    padding:10px 12px;
+    box-sizing:border-box;
+    border:1px solid #ccc;
+    border-radius:10px;
+    font:inherit;
+    font-size:15px;
+    line-height:1.5;
+    resize:vertical;
+}
+
+.grade-buttons{
+    display:grid;
+    grid-template-columns:repeat(3, 1fr);
+    gap:8px;
+    margin-top:18px;
+}
+
+.grade-buttons button{
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    min-height:60px;
+    padding:6px;
+    border-radius:10px;
+    font:inherit;
+    font-weight:700;
+    cursor:pointer;
+}
+
+.grade-buttons small{
+    font-size:12px;
+    font-weight:400;
+    opacity:0.8;
+}
+
+.grade-again{ border:1px solid #e9a3a3; background:#fdecec; color:#9b1c1c; }
+.grade-ok{ border:1px solid #ccc; background:white; color:var(--ink); }
+.grade-perfect{ border:1px solid #8fd0a6; background:#e8f7ee; color:#14632f; }
+
 /* number column used for a label in the Favourites list */
 .combo-num.tag{
     font-size:11px;
@@ -1294,10 +1869,26 @@ body.menu-open #backdrop{
 
 <div id="toast" role="status" aria-live="polite"></div>
 
-<div id="statsPage" role="dialog" aria-modal="true" aria-labelledby="statsTitle" hidden>
-<header id="statsHeader">
+<div id="callerPage" class="overlay-page" role="dialog" aria-modal="true" aria-labelledby="callerTitle" hidden>
+<header class="overlay-header">
+<h2 id="callerTitle">Move Caller</h2>
+<button type="button" id="callerClose" class="overlay-close" aria-label="Close the move caller">✕</button>
+</header>
+<div id="callerBody" class="practice-body"></div>
+</div>
+
+<div id="flashPage" class="overlay-page" role="dialog" aria-modal="true" aria-labelledby="flashTitle" hidden>
+<header class="overlay-header">
+<h2 id="flashTitle">Flashcards</h2>
+<button type="button" id="flashClose" class="overlay-close" aria-label="Close flashcards">✕</button>
+</header>
+<div id="flashBody" class="practice-body"></div>
+</div>
+
+<div id="statsPage" class="overlay-page" role="dialog" aria-modal="true" aria-labelledby="statsTitle" hidden>
+<header class="overlay-header">
 <h2 id="statsTitle">Statistics</h2>
-<button type="button" id="statsClose" aria-label="Close statistics">✕</button>
+<button type="button" id="statsClose" class="overlay-close" aria-label="Close statistics">✕</button>
 </header>
 <div id="statsBody"></div>
 <div id="statsTip" role="tooltip" hidden></div>
@@ -1340,15 +1931,41 @@ body.menu-open #backdrop{
 </div>
 </details>
 
+<details id="buildSection" class="menu-section">
+<summary><h2>Build a Combo</h2></summary>
+<div id="buildSeq" class="build-seq"></div>
+<div class="build-actions">
+<button type="button" id="buildUndo" class="secondary">Undo</button>
+<button type="button" id="buildClear" class="secondary">Clear</button>
+<button type="button" id="buildFromCurrent" class="secondary">Use current</button>
+</div>
+<div id="buildMoves"></div>
+</details>
+
 <details id="favSection" class="menu-section" open>
 <summary><h2>Favourites</h2></summary>
 <div id="favList"></div>
 </details>
 
-<button type="button" id="statsBtn" class="secondary stats-open">
-<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 20h16"/><path d="M7 16v-5"/><path d="M12 16V5"/><path d="M17 16v-8"/></svg>
+<details id="practiceSection" class="menu-section" open>
+<summary><h2>Practice</h2></summary>
+<div class="practice-buttons">
+<button type="button" id="callerBtn" class="secondary practice-btn">
+<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9v6h4l5 4V5L8 9z"/><path d="M16 9a4 4 0 0 1 0 6"/><path d="M19 6a8 8 0 0 1 0 12"/></svg>
+<span><b>Move Caller</b><small>Calls out combinations to dance to</small></span>
+</button>
+<button type="button" id="flashBtn" class="secondary practice-btn">
+<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="3" y="6" width="13" height="15" rx="2"/><path d="M8 3h11a2 2 0 0 1 2 2v13"/></svg>
+<span><b>Flashcards</b><small>Remember every detail of each move</small></span>
+</button>
+</div>
+<div class="fx-wrap" id="statsFx">
+<button type="button" id="statsBtn" class="stats-open fancy">
+<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 20h16"/><path d="M7 16v-5"/><path d="M12 16V5"/><path d="M17 16v-8"/></svg>
 Statistics
 </button>
+</div>
+</details>
 
 <p class="hint">Tap on an empty space to clear the combination.</p>
 
@@ -1582,7 +2199,8 @@ const fitPadding = () => isCompact() ? 20 : 50;
 
 const dom = Object.fromEntries(
     ["container","graph","cy","caption","comboTitle","stepHighlight","menu","menuBtn","closeBtn","classSection","showIntro","superSlot","toast","randomSection","lengthGroup","loopCombo","generateBtn","favBtn","shareBtn","favList","shuffleBtn","replaceBtn","avoidChanges",
-     "backdrop","comboList","statsBtn","statsPage","statsBody","statsClose","statsTip","prevBtn","nextBtn"].map(id=>[id, document.getElementById(id)])
+     "backdrop","comboList","buildSection","buildSeq","buildUndo","buildClear","buildFromCurrent","buildMoves",
+     "callerBtn","callerPage","callerBody","callerClose","flashBtn","flashPage","flashBody","flashClose","statsFx","statsBtn","statsPage","statsBody","statsClose","statsTip","prevBtn","nextBtn"].map(id=>[id, document.getElementById(id)])
 );
 
 // selection: the combination the user picked ({kind:"combo", combo} | null)
@@ -2386,6 +3004,7 @@ function select(selection, {updateUrl=true}={}){
     if(updateUrl) writeUrl(combo);
     updateFavButton();
     updateShuffleControls();
+    renderBuilder();            // "Use current" follows the selection
     renderCaption();
     render();
 }
@@ -3311,6 +3930,660 @@ SIDEBAR.addEventListener("change", ()=>{
 
 // Back/Forward move between combinations viewed
 window.addEventListener("popstate", ()=>selectCombo(comboFromUrl(), {updateUrl:false}));
+
+// =====================================================================
+// Shared bits for the practice pages
+// =====================================================================
+
+const loadJSON = (key, fallback={})=>{
+    try{ return JSON.parse(localStorage.getItem(key)) ?? fallback; }
+    catch{ return fallback; }
+};
+const saveJSON = (key, value)=>{
+    try{ localStorage.setItem(key, JSON.stringify(value)); }
+    catch{ /* storage full or blocked: keep working for this visit */ }
+};
+const movePool = ()=>MOVES.filter(m=>dom.showIntro.checked || m.level !== "intromediate").map(m=>m.name);
+
+function openPage(page, closeBtn){
+    closeMenu();
+    hideToast();
+    page.hidden = false;
+    page.scrollTop = 0;
+    closeBtn.focus();
+}
+
+// Segmented buttons ("2 3 4 5"); onPick(value) when one is tapped.
+function segmented(values, current, onPick, labelOf=v=>`${v}`){
+    const group = el("div", {className:"seg", role:"radiogroup"});
+    for(const v of values){
+        const b = el("button", {type:"button", textContent:labelOf(v)});
+        b.setAttribute("role", "radio");
+        b.setAttribute("aria-checked", v === current);
+        b.addEventListener("click", ()=>onPick(v));
+        group.append(b);
+    }
+    return group;
+}
+
+function setting(label, hint, control){
+    return el("div", {className:"setting"},
+        el("span", {}, label, ...(hint ? [el("span", {className:"hint-text", textContent:hint})] : [])),
+        control);
+}
+
+function numberInput(value, min, max, onChange){
+    const input = el("input", {type:"number", value, min, max, step:1, inputMode:"numeric"});
+    input.addEventListener("change", ()=>{
+        const v = Math.round(Number(input.value));
+        const ok = Number.isFinite(v) ? Math.min(max, Math.max(min, v)) : value;
+        input.value = ok;
+        onChange(ok);
+    });
+    return input;
+}
+
+// =====================================================================
+// Build a Combo: tap moves to make your own sequence. Moves that flow on
+// from the last one (no hand change) are listed first. The sequence is
+// shown on the graph as you build it, and kept on this device.
+// =====================================================================
+
+const BUILD_KEY = "mj-moves:builder";
+let built = loadJSON(BUILD_KEY, []);
+if(!Array.isArray(built)) built = [];
+built = built.filter(m=>MOVE_STATES.has(m));
+
+const builtCombo = ()=>({ id:null, caption:"Built", moves:[...built] });
+
+function setBuilt(moves){
+    built = moves;
+    saveJSON(BUILD_KEY, built);
+    renderBuilder();
+    if(built.length){
+        state.preview = null;
+        selectCombo(builtCombo());
+    }
+}
+
+function renderBuilder(){
+    const last = built.at(-1);
+    dom.buildSeq.replaceChildren(...(built.length
+        ? [el("span", {className:"combo-moves"}, ...sequenceNodes(builtCombo()))]
+        : [el("span", {className:"hint", textContent:"Tap moves below to build a combination."})]));
+    dom.buildUndo.disabled = dom.buildClear.disabled = !built.length;
+    const current = state.selection?.kind === "combo" ? state.selection.combo : null;
+    dom.buildFromCurrent.disabled = !current || sameMoves(current.moves, built);
+
+    const pool = movePool();
+    const flows = last ? pool.filter(m=>canFollow(last, m)) : pool;
+    const others = last ? pool.filter(m=>!canFollow(last, m)) : [];
+    const button = (name, note)=>{
+        const b = el("button", {type:"button", className:`build-move${note ? "" : last ? " flows" : ""}`},
+            el("span", {textContent:name}), ...(note ? [el("small", {textContent:note})] : []));
+        b.addEventListener("click", ()=>setBuilt([...built, name]));
+        return b;
+    };
+    const groups = [];
+    groups.push(el("p", {className:"build-group",
+        textContent:last ? `Flows on from ${last}` : "Start with any move"}),
+        el("div", {className:"build-list"}, ...flows.map(m=>button(m))));
+    if(others.length){
+        groups.push(el("p", {className:"build-group", textContent:"With a hand change first"}),
+            el("div", {className:"build-list"}, ...others.map(m=>button(m, bridge(last, m).note))));
+    }
+    dom.buildMoves.replaceChildren(...groups);
+}
+
+dom.buildUndo.addEventListener("click", ()=>setBuilt(built.slice(0, -1)));
+dom.buildClear.addEventListener("click", ()=>setBuilt([]));
+dom.buildFromCurrent.addEventListener("click", ()=>{
+    const current = state.selection?.kind === "combo" ? state.selection.combo : null;
+    if(current) setBuilt([...current.moves]);
+});
+dom.showIntro.addEventListener("change", renderBuilder);
+
+// =====================================================================
+// Move Caller
+//
+// For practising while dancing to a song. After a get-ready countdown it
+// calls out a random combination (2-5 moves), then gives you as long as it
+// takes to dance it - 16 counts a move at the song's speed, 130 bpm by
+// default - before calling the next. Each combination starts in the hand
+// hold the last one finished in, so you can keep dancing without a break.
+// =====================================================================
+
+const CALLER_KEY = "mj-moves:caller";
+const caller = {
+    settings:{ min:2, max:5, bpm:130, counts:16, ready:15, voice:true, ...loadJSON(CALLER_KEY) },
+    running:false, paused:false,
+    phase:null,             // "ready" | "announce" | "dance"
+    phaseStart:0, phaseLength:0, pausedAt:0,
+    combo:null, plan:null, endPos:null, called:0,
+    token:0, timer:null, wakeLock:null, view:null
+};
+const moveMs = ()=>caller.settings.counts * 60000 / caller.settings.bpm;
+const saveCaller = ()=>saveJSON(CALLER_KEY, caller.settings);
+
+// A random combination that flows without hand changes, starting (if it
+// can) in the hand hold `from`.
+function callerMoves(length, from){
+    const pool = movePool();
+    const extend = seq=>{
+        if(seq.length === length) return seq;
+        for(const m of shuffled(pool)){
+            if(seq.includes(m) || !canFollow(seq.at(-1), m)) continue;
+            const done = extend([...seq, m]);
+            if(done) return done;
+        }
+        return null;
+    };
+    const firsts = shuffled(pool);
+    const preferred = from ? firsts.filter(m=>MOVE_STATES.get(m).from === from) : [];
+    for(const first of [...preferred, ...firsts]){
+        const done = extend([first]);
+        if(done) return done;
+    }
+    return null;
+}
+
+// "drop R" reads better as "drop right"
+const spoken = text => text.replace(/\bR\b/g, "right").replace(/\bL\b/g, "left").replace(/&/g, "and");
+
+function speak(text){
+    return new Promise(resolve=>{
+        if(!caller.settings.voice || !("speechSynthesis" in window)){
+            setTimeout(resolve, 2500);      // time to read it instead
+            return;
+        }
+        speechSynthesis.cancel();
+        const u = new SpeechSynthesisUtterance(spoken(text));
+        u.rate = 0.95;
+        const done = ()=>{ clearTimeout(fallback); resolve(); };
+        const fallback = setTimeout(resolve, 20000);     // if "end" never comes
+        u.onend = u.onerror = done;
+        speechSynthesis.speak(u);
+    });
+}
+
+async function keepAwake(on){
+    try{
+        if(on && "wakeLock" in navigator && !caller.wakeLock){
+            caller.wakeLock = await navigator.wakeLock.request("screen");
+            caller.wakeLock.addEventListener("release", ()=>{ caller.wakeLock = null; });
+        }else if(!on && caller.wakeLock){
+            await caller.wakeLock.release();
+            caller.wakeLock = null;
+        }
+    }catch{ /* not allowed: the screen may sleep */ }
+}
+
+function setPhase(phase, ms){
+    caller.phase = phase;
+    caller.phaseStart = performance.now();
+    caller.phaseLength = ms;
+    if(caller.paused) caller.pausedAt = caller.phaseStart;
+}
+const phaseElapsed = ()=>(caller.paused ? caller.pausedAt : performance.now()) - caller.phaseStart;
+
+function callerStart(){
+    Object.assign(caller, { running:true, paused:false, called:0, combo:null, plan:null });
+    const current = state.selection?.kind === "combo" ? state.selection.combo : null;
+    caller.endPos = current ? planMoves(current.moves, current).filter(x=>x.kind === "move").at(-1)?.to : null;
+    caller.token++;
+    // speak straight away: phones only allow speech that starts from a tap,
+    // and after that the later calls can speak too
+    if(caller.settings.voice && "speechSynthesis" in window){
+        speechSynthesis.cancel();
+        speechSynthesis.speak(new SpeechSynthesisUtterance("Get ready"));
+    }
+    setPhase("ready", caller.settings.ready * 1000);
+    if(!caller.settings.ready) callNext();
+    keepAwake(true);
+    clearInterval(caller.timer);
+    caller.timer = setInterval(callerTick, 100);
+    renderCaller();
+}
+
+function callerStop(){
+    caller.running = false;
+    caller.token++;
+    clearInterval(caller.timer);
+    if("speechSynthesis" in window) speechSynthesis.cancel();
+    keepAwake(false);
+}
+
+function callerTogglePause(){
+    if(!caller.running) return;
+    if(caller.paused){
+        caller.phaseStart += performance.now() - caller.pausedAt;
+        caller.paused = false;
+    }else{
+        caller.paused = true;
+        caller.pausedAt = performance.now();
+    }
+    renderCaller();
+}
+
+async function callNext(){
+    const token = ++caller.token;
+    const {min, max} = caller.settings;
+    const length = min + Math.floor(Math.random() * (max - min + 1));
+    let moves = null;
+    for(let n = length; n >= MIN_RANDOM && !moves; n--) moves = callerMoves(n, caller.endPos);
+    if(!moves){
+        callerStop();
+        showToast("No combination fits - try turning on intromediate moves");
+        renderCaller();
+        return;
+    }
+    caller.combo = { id:null, caption:"Caller", moves };
+    caller.plan = planMoves(moves);
+    caller.endPos = caller.plan.filter(x=>x.kind === "move").at(-1).to;
+    caller.called++;
+    state.preview = null;
+    selectCombo(caller.combo, {updateUrl:false});      // there on the graph afterwards
+    setPhase("announce", 0);
+    renderCaller();
+    const words = caller.plan.map(x=>x.kind === "move" ? x.name + (x.variant ? `, ${x.variant}` : "") : x.note);
+    await speak(`${caller.called === 1 ? "First" : "Next"}: ${words.join(". ")}.`);
+    if(token !== caller.token || !caller.running) return;
+    setPhase("dance", moves.length * moveMs());
+    renderCaller();
+}
+
+function callerTick(){
+    if(!caller.running) return;
+    if(!caller.paused && caller.phase !== "announce" && phaseElapsed() >= caller.phaseLength){
+        callNext();
+        return;
+    }
+    updateCallerRun();
+}
+
+function renderCaller(){
+    if(dom.callerPage.hidden) return;
+    caller.view = null;
+    dom.callerBody.replaceChildren(caller.running ? callerRunView() : callerSetupView());
+    if(caller.running) updateCallerRun();
+}
+
+function callerSetupView(){
+    const s = caller.settings;
+    const pick = (key, other, cmp)=>v=>{
+        s[key] = v;
+        if(cmp(s[key], s[other])) s[other] = v;     // keep shortest <= longest
+        saveCaller();
+        renderCaller();
+    };
+    const secs = moveMs() / 1000;
+    return el("div", {},
+        el("p", {className:"intent"},
+            el("b", {textContent:"Practise while dancing to a song. "}),
+            "Put a track on and press Start. After a short countdown the caller reads out a random combination, " +
+            "then waits as long as it takes to dance it before calling the next. Each one starts in the hand hold " +
+            "the last finished in, so you can keep going for the whole song."),
+        setting("Shortest combination", null, segmented([2,3,4,5], s.min, pick("min", "max", (a,b)=>a > b))),
+        setting("Longest combination", null, segmented([2,3,4,5], s.max, pick("max", "min", (a,b)=>a < b))),
+        setting("Song speed (bpm)", "Lower gives you more time", numberInput(s.bpm, 60, 200, v=>{ s.bpm = v; saveCaller(); renderCaller(); })),
+        setting("Counts per move", null, numberInput(s.counts, 4, 64, v=>{ s.counts = v; saveCaller(); renderCaller(); })),
+        setting("Get-ready countdown (seconds)", null, numberInput(s.ready, 0, 120, v=>{ s.ready = v; saveCaller(); })),
+        setting("Read combinations out loud", "speechSynthesis" in window ? null : "Not supported in this browser",
+            (()=>{ const c = el("input", {type:"checkbox", checked:s.voice});
+                   c.addEventListener("change", ()=>{ s.voice = c.checked; saveCaller(); });
+                   return c; })()),
+        el("p", {className:"summary-line",
+            textContent:`A move gets ${s.counts} counts ≈ ${secs.toFixed(1)} s, so a 3-move combination lasts about ${Math.round(secs*3)} s. ` +
+                        (dom.showIntro.checked ? "Intromediate moves are included" : "Beginner moves only") + " (change it in the menu)."}),
+        (()=>{ const b = el("button", {type:"button", className:"primary big-action", textContent:"Start"});
+               b.addEventListener("click", callerStart);
+               return b; })());
+}
+
+function callerRunView(){
+    const R = 52, C = 2*Math.PI*R;
+    const ring = svgNode("circle", {cx:60, cy:60, r:R, fill:"none", stroke:"var(--accent)", "stroke-width":8,
+        "stroke-linecap":"round", "stroke-dasharray":C});
+    const clock = el("div", {className:"caller-clock"});
+    clock.append(svgNode("svg", {viewBox:"0 0 120 120"},
+        svgNode("circle", {cx:60, cy:60, r:R, fill:"none", stroke:"#ececec", "stroke-width":8}), ring));
+    const num = el("div", {className:"num"});
+    clock.append(num);
+    const phase = el("div", {className:"caller-phase"});
+    const moves = el("div", {className:"caller-moves", ariaLive:"polite"});
+    const chips = [];
+    if(caller.plan){
+        caller.plan.forEach((x, i)=>{
+            if(i) moves.append(el("span", {className:"arrow", textContent:"→"}));
+            if(x.kind === "move"){
+                const chip = el("span", {className:"cm", textContent:x.name + (x.variant ? ` · ${x.variant}` : "")});
+                chips[x.index] = chip;
+                moves.append(chip);
+            }else{
+                moves.append(el("span", {className:"cn", textContent:x.note}));
+            }
+        });
+    }
+    const count = el("div", {className:"caller-count"});
+    const btn = (text, cls, fn)=>{ const b = el("button", {type:"button", className:cls, textContent:text}); b.addEventListener("click", fn); return b; };
+    const buttons = el("div", {className:"caller-buttons"},
+        btn(caller.paused ? "Resume" : "Pause", "primary", callerTogglePause),
+        btn("Skip", "secondary", ()=>{ if(caller.paused) callerTogglePause(); callNext(); }),
+        btn("Stop", "secondary", ()=>{ callerStop(); renderCaller(); }));
+    caller.view = { ring, C, num, phase, chips, count };
+    return el("div", {className:"caller-run"}, phase, clock, moves, count, buttons);
+}
+
+function updateCallerRun(){
+    const v = caller.view;
+    if(!v) return;
+    const elapsed = phaseElapsed();
+    const left = Math.max(0, caller.phaseLength - elapsed);
+    const frac = caller.phaseLength ? left / caller.phaseLength : 1;
+    v.ring.setAttribute("stroke-dashoffset", v.C * (1 - frac));
+    let label = "", big = "", small = "", countText = "";
+    if(caller.phase === "ready"){
+        label = "Get ready"; big = Math.ceil(left/1000); small = "seconds";
+        countText = "The first combination is called when this reaches zero";
+    }else if(caller.phase === "announce"){
+        label = "Listen"; big = "…"; small = `combination ${caller.called}`;
+    }else{
+        label = "Dance"; big = Math.ceil(left/1000); small = "seconds left";
+        const m = Math.min(caller.combo.moves.length - 1, Math.floor(elapsed / moveMs()));
+        const beat = Math.floor((elapsed % moveMs()) / (60000 / caller.settings.bpm)) + 1;
+        v.chips.forEach((c, i)=>{ c.classList.toggle("now", i === m); c.classList.toggle("done", i < m); });
+        countText = `Move ${m+1} of ${caller.combo.moves.length} · count ${Math.min(beat, caller.settings.counts)}`;
+    }
+    if(caller.paused) label = "Paused";
+    if(v.phase.textContent !== label) v.phase.textContent = label;
+    v.num.replaceChildren(`${big}`, el("small", {textContent:small}));
+    if(v.count.textContent !== countText) v.count.textContent = countText;
+}
+
+const svgNode = (tag, attrs={}, ...children)=>{
+    const node = document.createElementNS("http://www.w3.org/2000/svg", tag);
+    for(const [k, v] of Object.entries(attrs)) node.setAttribute(k, v);
+    node.append(...children);
+    return node;
+};
+
+function closeCaller(){
+    if(dom.callerPage.hidden) return;
+    callerStop();
+    dom.callerPage.hidden = true;
+    dom.callerBtn.focus({preventScroll:true});
+}
+
+dom.callerBtn.addEventListener("click", ()=>{ openPage(dom.callerPage, dom.callerClose); renderCaller(); });
+dom.callerClose.addEventListener("click", closeCaller);
+document.addEventListener("visibilitychange", ()=>{
+    if(caller.running && document.visibilityState === "visible") keepAwake(true);
+});
+
+// =====================================================================
+// Flashcards
+//
+// For remembering each move in full: which hand hold, which way a turn
+// goes, how the lead works, how the follow works, the footwork and any
+// important details. Build each move up in order - feet and position
+// first, then the arms, then the lead and follow turns and changes of
+// place - then show the answer and say how well you knew it. A basic
+// Leitner system (like Anki): cards you know well come back less often.
+// =====================================================================
+
+const FLASH_KEY = "mj-moves:flashcards", NOTES_KEY = "mj-moves:move-notes", DECK_KEY = "mj-moves:flash-deck";
+const BOX_DAYS = [0, 1, 2, 4, 8, 16];       // days until a card in box 1-5 comes back
+const LAST_BOX = BOX_DAYS.length - 1;
+const flash = {
+    cards:loadJSON(FLASH_KEY),              // move name -> {box, due:"YYYY-MM-DD"}
+    notes:loadJSON(NOTES_KEY),              // move name -> your notes
+    deck:localStorage.getItem(DECK_KEY) === "all" ? "all" : "beginner",
+    queue:[], at:0, revealed:false, tally:null, view:"home"
+};
+const NOTES_TEMPLATE = "Feet & position: \nArms & hand hold: \nLead: \nFollow: \nTurns & changing places: \nDetails: ";
+
+const dayString = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+const today = ()=>dayString(new Date());
+const inDays = n=>{ const d = new Date(); d.setDate(d.getDate() + n); return dayString(d); };
+const cardOf = name => flash.cards[name] ?? { box:0, due:null };
+const deckMoves = ()=>MOVES.filter(m=>flash.deck === "all" || m.level === "beginner");
+const isDue = name=>{ const c = cardOf(name); return !c.box || c.due <= today(); };
+const daysText = n => n === 0 ? "again now" : n === 1 ? "tomorrow" : `in ${n} days`;
+
+// What each answer does to a card: [new box, days until it's back]
+function graded(name, grade){
+    const box = cardOf(name).box;
+    const next = grade === "again" ? 1 : Math.min(LAST_BOX, box + (grade === "perfect" ? 2 : 1));
+    return [next, grade === "again" ? 0 : BOX_DAYS[next]];
+}
+
+function flashStart(all=false){
+    const names = deckMoves().map(m=>m.name).filter(n=>all || isDue(n));
+    // reviews first (shakiest first), then new cards, shuffled within each
+    const reviews = shuffled(names.filter(n=>cardOf(n).box)).sort((a,b)=>cardOf(a).box - cardOf(b).box);
+    const fresh = shuffled(names.filter(n=>!cardOf(n).box));
+    Object.assign(flash, { queue:[...reviews, ...fresh], at:0, revealed:false,
+                           tally:{again:0, ok:0, perfect:0}, view:"card" });
+    renderFlash();
+}
+
+function flashGrade(grade){
+    const name = flash.queue[flash.at];
+    const [box, days] = graded(name, grade);
+    flash.cards[name] = { box, due:inDays(days) };
+    saveJSON(FLASH_KEY, flash.cards);
+    flash.tally[grade]++;
+    if(grade === "again") flash.queue.push(name);       // see it again before the end
+    flash.at++;
+    flash.revealed = false;
+    if(flash.at >= flash.queue.length) flash.view = "done";
+    renderFlash();
+}
+
+function renderFlash(){
+    if(dom.flashPage.hidden) return;
+    const view = flash.view === "card" ? flashCardView() : flash.view === "done" ? flashDoneView() : flashHomeView();
+    dom.flashBody.replaceChildren(view);
+    dom.flashPage.scrollTop = 0;
+}
+
+function flashHomeView(){
+    const moves = deckMoves().map(m=>m.name);
+    const due = moves.filter(isDue);
+    const fresh = moves.filter(n=>!cardOf(n).box);
+    const inBox = b => moves.filter(n=>cardOf(n).box === b).length;
+    const most = Math.max(1, ...[0,1,2,3,4,5].map(inBox));
+    const upcoming = moves.filter(n=>!isDue(n)).map(n=>cardOf(n).due).sort()[0];
+    const btn = (text, cls, fn, disabled=false)=>{
+        const b = el("button", {type:"button", className:cls, textContent:text, disabled});
+        b.addEventListener("click", fn);
+        return b;
+    };
+    const reset = el("button", {type:"button", className:"secondary", textContent:"Reset progress",
+        style:"margin-top:28px;min-height:40px;font-size:14px"});
+    reset.addEventListener("click", ()=>{
+        if(!confirm("Forget how well you know every card? (Your notes are kept.)")) return;
+        flash.cards = {};
+        saveJSON(FLASH_KEY, flash.cards);
+        renderFlash();
+    });
+    const beginners = MOVES.filter(m=>m.level === "beginner").length;
+    return el("div", {},
+        el("p", {className:"intent"},
+            el("b", {textContent:"Remember every move in full: "}),
+            "which hand hold, which way a turn goes, how the lead works, how the follow works, the footwork and any " +
+            "important details. For each card, build the move up in order: feet and position first, then the arms, " +
+            "then the lead and follow turns and changes of place. Then show the answer and say how well you knew it. " +
+            "Cards you know well come back less often."),
+        setting("Cards", null, segmented(["beginner", "all"], flash.deck, v=>{
+            flash.deck = v;
+            localStorage.setItem(DECK_KEY, v);
+            renderFlash();
+        }, v=>v === "all" ? `All moves (${MOVES.length})` : `Beginner (${beginners})`)),
+        el("div", {className:"boxes", role:"img",
+            ariaLabel:`New: ${inBox(0)}. ` + [1,2,3,4,5].map(b=>`Box ${b}: ${inBox(b)}`).join(", ")},
+            ...[0,1,2,3,4,5].map(b=>el("div", {},
+                el("div", {className:"bn", textContent:inBox(b)}),
+                el("div", {className:"bx"}, el("span", {style:`height:${inBox(b)/most*100}%`})),
+                el("div", {textContent:b ? `Box ${b}` : "New"})))),
+        el("p", {className:"summary-line", textContent:
+            `Box 1 comes back the next day, then every 2, 4, 8 and 16 days as you move up. ` +
+            `${due.length} due today (${fresh.length} new).` +
+            (!due.length && upcoming ? ` Next cards are due ${upcoming === inDays(1) ? "tomorrow" : upcoming}.` : "")}),
+        due.length ? btn(`Study ${plural(due.length, "card")}`, "primary big-action", ()=>flashStart())
+                   : btn("All done for today", "primary big-action", ()=>{}, true),
+        btn("Practise every card anyway", "secondary big-action", ()=>flashStart(true)),
+        reset);
+}
+
+function flashCardView(){
+    const name = flash.queue[flash.at];
+    const move = MOVE_STATES.get(name);
+    const card = el("div", {className:"flashcard"},
+        el("div", {className:"flash-progress"},
+            el("span", {textContent:`${flash.at + 1} of ${flash.queue.length}`}),
+            el("span", {textContent:cardOf(name).box ? `Box ${cardOf(name).box}` : "New card"})),
+        el("div", {className:"flash-name", textContent:name}),
+        el("div", {className:"flash-level", textContent:move.level}));
+    if(!flash.revealed){
+        card.append(el("ol", {className:"flash-steps"},
+            el("li", {textContent:"Feet and position"}),
+            el("li", {textContent:"Arms: which hand hold, and where the hands go"}),
+            el("li", {textContent:"Lead and follow: turns (which way?) and changing places"}),
+            el("li", {textContent:"Any important details"})));
+        const show = el("button", {type:"button", className:"primary big-action", textContent:"Show answer"});
+        show.addEventListener("click", ()=>{ flash.revealed = true; renderFlash(); });
+        card.append(show);
+        return card;
+    }
+    // what the app knows about the move
+    const hold = (id, text)=>el("div", {}, el("img", {src:nodeIcon(id), alt:""}), `${text}: ${POSITION_NAMES[id]}`);
+    card.append(el("div", {className:"flash-holds"}, hold(move.from, "Starts"), el("span", {textContent:"→"}), hold(move.to, "Finishes")));
+    const facts = [];
+    for(const v of MOVE_VARIATIONS.filter(v=>v.move === name)){
+        facts.push(v.end ? `Can finish in ${POSITION_NAMES[v.end]} (${v.note})` : `Can start from ${POSITION_NAMES[v.start]} (${v.note})`);
+    }
+    const inClass = COMBINATIONS.filter(c=>c.moves.includes(name)).map(c=>c.id);
+    facts.push(inClass.length ? `In class combination${inClass.length > 1 ? "s" : ""} ${listText(inClass.map(String))}`
+                              : "Not in a class combination yet");
+    const followers = movePool().filter(m=>canFollow(name, m));
+    facts.push(`Flows on into ${plural(followers.length, "move")} without a hand change`);
+    card.append(el("ul", {className:"flash-facts"}, ...facts.map(f=>el("li", {textContent:f}))));
+
+    // your own notes: the details the app doesn't know
+    const area = el("textarea", {id:"flashNotes", value:flash.notes[name] ?? "", placeholder:NOTES_TEMPLATE});
+    area.addEventListener("input", ()=>{
+        if(area.value.trim()) flash.notes[name] = area.value;
+        else delete flash.notes[name];
+        saveJSON(NOTES_KEY, flash.notes);
+    });
+    const notes = el("div", {className:"flash-notes"},
+        el("label", {htmlFor:"flashNotes", textContent:"Your notes"}), area);
+    if(!area.value){
+        const tmpl = el("button", {type:"button", className:"secondary", textContent:"Add headings",
+            style:"margin-top:6px;min-height:36px;font-size:14px;padding:0 12px"});
+        tmpl.addEventListener("click", ()=>{ area.value = NOTES_TEMPLATE; area.dispatchEvent(new Event("input")); area.focus(); tmpl.remove(); });
+        notes.append(tmpl);
+    }
+    card.append(notes);
+
+    const grade = (g, label, cls)=>{
+        const [, days] = graded(name, g);
+        const b = el("button", {type:"button", className:cls}, label, el("small", {textContent:daysText(days)}));
+        b.addEventListener("click", ()=>flashGrade(g));
+        return b;
+    };
+    card.append(el("div", {className:"grade-buttons"},
+        grade("again", "Don't know", "grade-again"),
+        grade("ok", "Ok", "grade-ok"),
+        grade("perfect", "Details perfect", "grade-perfect")));
+    return card;
+}
+
+function flashDoneView(){
+    const t = flash.tally;
+    const back = el("button", {type:"button", className:"primary big-action", textContent:"Done"});
+    back.addEventListener("click", ()=>{ flash.view = "home"; renderFlash(); });
+    return el("div", {className:"flashcard", style:"text-align:center"},
+        el("div", {className:"flash-name", textContent:"Session complete"}),
+        el("p", {className:"summary-line", style:"font-size:16px", textContent:
+            `${plural(t.perfect, "card")} perfect, ${t.ok} ok, ${t.again} to relearn.`}),
+        back);
+}
+
+function closeFlash(){
+    if(dom.flashPage.hidden) return;
+    dom.flashPage.hidden = true;
+    flash.view = "home";
+    dom.flashBtn.focus({preventScroll:true});
+}
+
+dom.flashBtn.addEventListener("click", ()=>{ flash.view = "home"; openPage(dom.flashPage, dom.flashClose); renderFlash(); });
+dom.flashClose.addEventListener("click", closeFlash);
+
+document.addEventListener("keydown", e=>{
+    if(e.key === "Escape"){ closeCaller(); closeFlash(); return; }
+    if(dom.flashPage.hidden || flash.view !== "card" || e.target.closest?.("textarea, input")) return;
+    if(!flash.revealed && (e.key === " " || e.key === "Enter")){
+        e.preventDefault();
+        flash.revealed = true;
+        renderFlash();
+    }else if(flash.revealed && ["1","2","3"].includes(e.key)){
+        flashGrade(["again", "ok", "perfect"][Number(e.key) - 1]);
+    }
+});
+document.addEventListener("keydown", e=>{
+    if(e.key === " " && !dom.callerPage.hidden && caller.running && !e.target.closest?.("button, input")){
+        e.preventDefault();
+        callerTogglePause();
+    }
+});
+
+// =====================================================================
+// The Statistics button: sparks fall off it and little fireworks pop at
+// its corners now and then (not with reduced motion, or when hidden).
+// =====================================================================
+
+{
+    const COLORS = ["#ffd43b", "#ff8787", "#74c0fc", "#b197fc", "#69db7c", "#ffa94d"];
+    const pick = list => list[Math.floor(Math.random() * list.length)];
+    const visible = ()=>{
+        if(document.hidden || REDUCED_MOTION.matches) return false;
+        const r = dom.statsBtn.getBoundingClientRect();
+        return r.width > 0 && r.right > 0 && r.left < innerWidth && r.bottom > 0 && r.top < innerHeight;
+    };
+    const spark = ()=>{
+        const w = dom.statsBtn.offsetWidth, h = dom.statsBtn.offsetHeight;
+        const color = pick(COLORS);
+        const s = el("span", {className:"spark"});
+        s.style.cssText = `left:${8 + Math.random()*(w-16)}px;top:${h - 3}px;background:${color};` +
+            `box-shadow:0 0 6px 1px ${color};--dx:${(Math.random()-0.5)*14}px;--t:${0.9 + Math.random()*0.6}s`;
+        s.addEventListener("animationend", ()=>s.remove());
+        dom.statsFx.append(s);
+    };
+    const firework = ()=>{
+        const w = dom.statsBtn.offsetWidth, h = dom.statsBtn.offsetHeight;
+        const corner = [[4, 4], [w-4, 4], [4, h-4], [w-4, h-4]][Math.floor(Math.random()*4)];
+        const b = el("span", {className:"burst"});
+        b.style.cssText = `left:${corner[0]}px;top:${corner[1]}px`;
+        const color = pick(COLORS), n = 10;
+        for(let i = 0; i < n; i++){
+            const p = el("i");
+            p.style.cssText = `--a:${i*360/n + Math.random()*12}deg;--r:${14 + Math.random()*8}px;background:${color};box-shadow:0 0 4px ${color}`;
+            b.append(p);
+        }
+        setTimeout(()=>b.remove(), 900);
+        dom.statsFx.append(b);
+    };
+    setInterval(()=>{ if(visible() && Math.random() < 0.55) spark(); }, 260);
+    const scheduleFirework = ()=>setTimeout(()=>{
+        if(visible()) firework();
+        scheduleFirework();
+    }, 2500 + Math.random()*3500);
+    scheduleFirework();
+}
+
+renderBuilder();
 
 state.selection = (c=>c ? {kind:"combo", combo:c} : null)(comboFromUrl());
 select(state.selection, {updateUrl:false});
