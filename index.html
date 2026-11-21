@@ -2242,6 +2242,17 @@ button.cal-day{
 .nm-error:empty{ margin:0; }
 
 /* the move details panel: tips from a lesson */
+.nm-details textarea{
+    min-height:120px;
+}
+
+.nm-details-text{
+    margin:0;
+    white-space:pre-wrap;
+    text-align:left;
+    line-height:1.5;
+}
+
 .mp-tips{
     margin:0;
     padding-left:20px;
@@ -6632,6 +6643,8 @@ function flashCardView(){
             el("ul", {className:"flash-facts"}, ...MOVE_TIPS[name].map(t=>el("li", {textContent:t}))));
     }
     const steps = move.custom ? stepsView(newMoves.find(n=>n.id === move.id)?.steps) : null;
+    const mineDetails = move.custom ? newMoves.find(n=>n.id === move.id)?.details?.trim() : "";
+    if(mineDetails) card.append(el("h3", {className:"log-h", textContent:"Details"}), el("p", {className:"nm-details-text", textContent:mineDetails}));
     if(steps) card.append(el("h3", {className:"log-h", textContent:"Steps"}), steps);
 
     card.append(notesEditor(name));     // your own notes: the details the app doesn't know
@@ -7604,6 +7617,9 @@ function newPageView(n){
 
     const hold = id=>el("span", {className:"nm-hold"}, posIcon(id, 26), POSITION_NAMES[id]);
     const steps = stepsView(n.steps);
+    // a free-form box for anything about the move, saved as you type
+    const details = el("textarea", {id:"nmDetails", value:n.details ?? "", placeholder:"Your thoughts after class: what happens, comments, feedback… You can break it down into steps later."});
+    details.addEventListener("input", ()=>{ n.details = details.value; saveQuietly(); });
     return el("div", {className:"nm-page"},
         back,
         el("h2", {className:"nm-title", textContent:n.name}),
@@ -7615,8 +7631,9 @@ function newPageView(n){
             prop("Hands", hold(n.from), el("span", {className:"arrow", textContent:"→"}), hold(n.to))),
         main ? videoView(main, newMoveVideoKey(n, main), n.name)
              : el("p", {className:"nm-empty", textContent:"No video yet. Edit the move to add one from your camera roll or a link."}),
+        el("div", {className:"flash-notes nm-details"}, el("label", {htmlFor:"nmDetails", textContent:"Details"}), details),
         el("h3", {className:"log-h", textContent:"Steps"}),
-        steps ?? el("p", {className:"mp-text", textContent:"No steps yet. Edit the move to write them down by counts."}),
+        steps ?? el("p", {className:"mp-text", textContent:"No steps yet. When you're ready, edit the move to break the details down by counts."}),
         ...(more.length ? [el("h3", {className:"log-h", textContent:"More examples"}), ...more.map(v=>videoView(v, newMoveVideoKey(n, v), n.name))] : []),
         el("h3", {className:"log-h", textContent:"Feel"}),
         feelView(n.name),
@@ -7631,7 +7648,7 @@ function startEdit(n){
     const draft = n ? structuredClone(n) : {
         id:`nm-${uid()}`, name:"", kind:"intermediate", of:null, from:"lr", to:"lr",
         energy:"medium", distance:"normal", smoothness:"normal", status:"new", priority:"medium",
-        steps:[{ counts:"1-4", text:"" }, { counts:"5-8", text:"" }], videos:[], created:Date.now()
+        details:"", steps:[{ counts:"1-4", text:"" }, { counts:"5-8", text:"" }], videos:[], created:Date.now()
     };
     draft.steps ??= [];
     draft.videos ??= [];
@@ -7769,6 +7786,9 @@ function newEditView(){
         repaint();
     });
 
+    const details = el("textarea", {id:"nmDetailsEdit", value:draft.details ?? "", placeholder:"Your thoughts after class: what happens, comments, feedback… You can break it down into steps later."});
+    details.addEventListener("input", ()=>{ draft.details = details.value; });
+
     const error = el("p", {className:"nm-error", role:"alert"});
     const save = el("button", {type:"button", className:"primary big-action", textContent:ed.isNew ? "Add move" : "Save changes"});
     save.addEventListener("click", async ()=>{
@@ -7802,6 +7822,7 @@ function newEditView(){
         el("div", {className:"flash-notes"}, el("label", {htmlFor:"nmName", textContent:"Name"}), name),
         setting("Type", "An intermediate move of its own, or a variation of a move you know", kind),
         ...(draft.kind === "variation" ? [setting("Variation of", "Copies its hand holds and feel, which you can change", of)] : []),
+        el("div", {className:"flash-notes nm-details"}, el("label", {htmlFor:"nmDetailsEdit", textContent:"Details"}), details),
         el("h3", {className:"log-h", textContent:"Starts in"}),
         holdPicker(draft.from, "Starts in", v=>{ draft.from = v; repaint(); }),
         el("h3", {className:"log-h", textContent:"Finishes in"}),
