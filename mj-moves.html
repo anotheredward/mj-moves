@@ -3628,9 +3628,47 @@ function startPulse(steps, owner){
     setActiveStep(-1, true);
     if(!steps.length || REDUCED_MOTION.matches){
         pulseDots.style("opacity", 0);
+        lightNodes(null);
         return;
     }
     if(pulse.frame === null) pulse.frame = requestAnimationFrame(pulseTick);
+}
+
+// The hand position the comet is at has a thick blue outline: as it
+// travels a line, the outline fades from the position it's leaving into
+// the one it's heading for. head = distance along the path (null: none).
+const NODE_LIGHT = { width:4.5 };
+const hexRgb = hex=>{
+    const h = hex.replace("#", "");
+    const full = h.length === 3 ? [...h].map(c=>c+c).join("") : h;
+    return [0, 2, 4].map(i=>parseInt(full.slice(i, i+2), 16));
+};
+function lightNodes(head){
+    const glow = new Map();     // node id -> 0..1
+    const path = pulse.path;
+    if(head !== null && path && path.total > 0 && pulse.steps.length){
+        const {starts, total} = path;
+        let j = 0;
+        starts.forEach((d, k)=>{ if(d <= Math.min(head, total)) j = k; });
+        const edge = pulse.steps[j]?.edge;
+        if(edge && !edge.removed()){
+            const end = starts[j+1] ?? total;
+            const t = Math.min(1, Math.max(0, (Math.min(head, total) - starts[j]) / ((end - starts[j]) || 1)));
+            const ease = t*t*(3 - 2*t);
+            const from = edge.source().id(), to = edge.target().id();
+            glow.set(from, 1 - ease);
+            glow.set(to, Math.max(glow.get(to) ?? 0, from === to ? 1 : ease));
+        }
+    }
+    const base = hexRgb(COLOR.nodeBorder), blue = hexRgb(COLOR.lead);
+    cy.batch(()=>cy.nodes(".state").forEach(node=>{
+        const k = glow.get(node.id()) ?? 0;
+        if(Math.abs((node.scratch("_light") ?? 0) - k) < 0.01) return;   // unchanged
+        node.scratch("_light", k);
+        if(k === 0){ node.removeStyle("border-width border-color"); return; }
+        const c = base.map((v, i)=>Math.round(v + (blue[i] - v) * k));
+        node.style({ "border-width":1 + (NODE_LIGHT.width - 1) * k, "border-color":`rgb(${c.join(",")})` });
+    }));
 }
 
 function pulseTick(now){
@@ -3638,6 +3676,7 @@ function pulseTick(now){
     if(!pulse.steps.length || REDUCED_MOTION.matches){
         pulseDots.style("opacity", 0);
         setActiveStep(-1);
+        lightNodes(null);
         return;
     }
     if(!pulse.path || pulse.path.incomplete) pulse.path = buildPath();
@@ -3656,6 +3695,7 @@ function pulseTick(now){
         if(head <= total) pulse.path.starts.forEach((d,j)=>{ if(d <= head) step = j; });
         setActiveStep(step);
         updateStepHighlight();            // once per frame: follows the comet and zoom/pan
+        lightNodes(head);
 
         const boxes = labelBoxes();
         cy.batch(()=>pulseDots.forEach((dot,i)=>{
@@ -5930,6 +5970,7 @@ function applyTheme(){
     nodeIconCache.clear();
     cy.nodes(".state").forEach(n=>n.data("icon", nodeIcon(n.id())));
     pulseDots.forEach((dot, i)=>dot.data({ color:cometColor(i), glow:cometGlow(i) }));
+    cy.nodes(".state").forEach(n=>n.scratch("_light", -1));     // recolour the outlines
     cy.style().fromJson(cyStyle()).update();
     renderCaption();
     if(!dom.movePanel.hidden && dom.movePanel.dataset.move) showMoveDetails(dom.movePanel.dataset.move);
