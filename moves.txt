@@ -20,7 +20,7 @@ Travelling Return,lr,lr
 Key Turn,rr,lr
 Wurlitzer,lr,lr
 Left Side Change,lr,rr
-Yoyo,rr,lr
+Yoyo,rr,rr
 Shoulder Wrap,rr,lr
 Comb,rr,rr
 Slide Break,bh,rr
