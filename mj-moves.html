@@ -432,6 +432,11 @@ body.menu-open #backdrop{
     text-align:left;
 }
 
+.loop-mark{
+    color:var(--accent-text);
+    font-weight:bold;
+}
+
 .combo-body{
     display:flex;
     flex-direction:column;
@@ -852,15 +857,19 @@ const sameMoves = (a, b) => a.length === b.length && a.every((m,i)=>m === b[i]);
 // changes needed in between. Returns, in order:
 //   {kind:"move", index, name, from, to, variant}   variant: e.g. "keep both"
 //   {kind:"transition", index, from, to, note}      after move `index`
-function planMoves(moves){
+function planMoves(moves, {loops=false}={}){
     const plan = [];
     moves.forEach((name,i)=>{
         const st = MOVE_STATES.get(name);
         if(!st) return;
         const next = MOVE_STATES.get(moves[i+1]);
+        // a looping combination's last move leads back into the first, so it
+        // may need its alternative ending too (Basket keeping both hands)
+        const wrapTo = loops && i === moves.length-1 ? MOVE_STATES.get(moves[0]) : null;
+        const target = next ?? wrapTo;
         let to = st.to, variant = null;
-        if(next && to !== next.from){
-            const alt = ALT_ENDINGS.find(([m,end])=>m === name && end === next.from);
+        if(target && to !== target.from){
+            const alt = ALT_ENDINGS.find(([m,end])=>m === name && end === target.from);
             if(alt) [, to, variant] = alt;
         }
         plan.push({ kind:"move", index:i, name, from:st.from, to, variant });
@@ -1379,7 +1388,7 @@ const NUMBERS_ONLY_FROM = 3;
 
 function showCombo(combo){
     cy.edges().addClass("dim");
-    const plan = planMoves(combo.moves);
+    const plan = planMoves(combo.moves, combo);
     // Each move is drawn on the line for where it really goes, so a move
     // with an alternative ending (Basket keeping both hands) sits on that line.
     const onEdge = new Map();   // edge -> [{n, text, step}]
@@ -1643,7 +1652,7 @@ const arrow = (text=" → ") => el("span", {className:"arrow", textContent:text}
 // the pulse light up the current one.
 function sequenceNodes(combo){
     const parts = [];
-    for(const item of planMoves(combo.moves)){
+    for(const item of planMoves(combo.moves, combo)){
         if(parts.length) parts.push(arrow());
         if(item.kind === "move"){
             const chip = el("span", {className:"step", textContent:item.name});
@@ -1657,6 +1666,7 @@ function sequenceNodes(combo){
             parts.push(tag);
         }
     }
+    if(combo.loops) parts.push(el("span", {className:"loop-mark", textContent:" ↻", title:"Loops back to the start"}));
     return parts;
 }
 
@@ -1679,7 +1689,8 @@ function renderCaption(){
 // ---------------------------------------------------------------------
 // The query string holds the combination being shown, e.g.
 //   ?moves=accordion,shoulder-block,block-and-turn&combo=4
-// "moves" is what's shown (any sequence of moves). "combo" is optional:
+// "moves" is what's shown (any sequence of moves); "loop" marks one that
+// repeats (its last move leads back into the first). "combo" is optional:
 // the class combination number, added only when the moves are one. A link
 // with just "moves" works the same; "combo" alone opens that combination.
 // ---------------------------------------------------------------------
@@ -1695,6 +1706,7 @@ const classCombo = moves => MENU_COMBOS.find(c=>sameMoves(c.moves, moves));
 function comboUrl(combo){
     const params = [];
     if(combo) params.push(`moves=${combo.moves.map(slug).join(",")}`);
+    if(combo?.loops) params.push("loop");
     if(combo?.id) params.push(`combo=${combo.id}`);     // optional, last
     return params.length ? `?${params.join("&")}` : location.pathname.split("/").pop();
 }
@@ -1713,6 +1725,7 @@ function comboFromUrl(){
         else if(s.trim()) console.warn(`Link: unknown move "${s}"`);
     }
     if(!moves.length) return null;
+    if(params.has("loop")) return { id:null, moves, loops:true };
     return classCombo(moves) ?? { id:null, moves };
 }
 
@@ -1837,9 +1850,10 @@ function toggleFavourite(combo){
     const {fav, favAt} = statOf(combo);
     if(fav){
         setStat(combo, {fav:false});
-        showToast(`${comboName(combo)} removed from favourites`, ()=>setStat(combo, {fav:true, favAt}));
+        showToast(`${comboName(combo)} removed from favourites`,
+                  ()=>setStat(combo, {fav:true, favAt, ...(combo.loops ? {loops:true} : {})}));
     }else{
-        setStat(combo, {fav:true, favAt:Date.now()});
+        setStat(combo, {fav:true, favAt:Date.now(), ...(combo.loops ? {loops:true} : {})});
     }
 }
 
@@ -1909,7 +1923,8 @@ function renderFavourites(){
     for(const [link] of [...comboLinks].filter(([link])=>dom.favList.contains(link))) comboLinks.delete(link);
     const favs = Object.entries(stats).filter(([,v])=>v.fav).map(([key,v])=>{
         const moves = key.split(",").map(s=>MOVE_BY_SLUG.get(s)).filter(Boolean);
-        return { combo: classCombo(moves) ?? { id:null, moves }, favAt: v.favAt || 0 };
+        const combo = v.loops ? { id:null, moves, loops:true } : classCombo(moves) ?? { id:null, moves };
+        return { combo, favAt: v.favAt || 0 };
     }).filter(f=>f.combo.moves.length);
     const rank = f=>{
         const i = MENU_COMBOS.indexOf(f.combo);
@@ -2070,7 +2085,7 @@ function randomMoves(length, loops){
             return;
         }
         state.preview = null;
-        selectCombo({ id:null, caption:"Random", moves });
+        selectCombo({ id:null, caption:"Random", moves, loops:dom.loopCombo.checked });
         closeMenu();
     });
 }
