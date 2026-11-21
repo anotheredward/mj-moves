@@ -1211,9 +1211,10 @@ function renderCaption(){
 
 // ---------------------------------------------------------------------
 // The query string holds the combination being shown, e.g.
-//   ?combo=4&moves=accordion,shoulder-block,block-and-turn
-// "moves" is what's shown (any linked or hand-changed sequence); "combo"
-// is the class combination number, when it is one.
+//   ?moves=accordion,shoulder-block,block-and-turn&combo=4
+// "moves" is what's shown (any sequence of moves). "combo" is optional:
+// the class combination number, added only when the moves are one. A link
+// with just "moves" works the same; "combo" alone opens that combination.
 // ---------------------------------------------------------------------
 
 const slug = name => name.toLowerCase().replace(/&/g, "and").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
@@ -1224,8 +1225,8 @@ const classCombo = moves => COMBINATIONS.find(c=>sameMoves(c.moves, moves));
 
 function comboUrl(combo){
     const params = [];
-    if(combo?.id) params.push(`combo=${combo.id}`);
     if(combo) params.push(`moves=${combo.moves.map(slug).join(",")}`);
+    if(combo?.id) params.push(`combo=${combo.id}`);     // optional, last
     return params.length ? `?${params.join("&")}` : location.pathname.split("/").pop();
 }
 
