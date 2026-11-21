@@ -1391,7 +1391,7 @@ const COMBINATIONS = [
 { id:6,  moves:["Step Across","Wurlitzer","Short First Move"] },
 { id:7,  moves:["Basket","Loop Throughs","Hatchback"] },
 { id:8,  moves:["Squeezebox","Figure Of 8","Catapult"] },
-{ id:9,  moves:["Manhattan","New Yorker","Outside Turn"], styles:{ "Manhattan":"travelling return" } },
+{ id:9,  moves:["Manhattan","Travelling Return","New Yorker","Outside Turn"] },
 { id:10, moves:["Shoulder Block","Accordion","Yoyo"] },
 { id:11, moves:["Short First Move","Loop Throughs","New Yorker"] },
 { id:12, moves:["Catapult","Break Through","Block & Turn"] },
@@ -1983,7 +1983,7 @@ function addTransition(from, to, note, index){
 // Returns the steps in execution order: {edge, kind, index, line}.
 // On phones, a line carrying this many steps or more lists just the step
 // numbers ("3 · 5 · 8"); the caption names the current move.
-const NUMBERS_ONLY_FROM = 4;
+const NUMBERS_ONLY_FROM = 5;
 
 function showCombo(combo){
     cy.edges().addClass("dim");
