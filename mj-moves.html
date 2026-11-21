@@ -838,19 +838,32 @@ const MOVES = [
 //   4. otherwise a plain "hand change" (and a console warning)
 // We prefer moves that link without any of these.
 //
-// Move variations. "ending: true" means it's really the move ending
+// Move variations: how a particular move changes grip (traces and offers
+// depend on the move). "ending: true" means it's really the move ending
 // differently (shown as a tag on the move); the others are shown as a hand
 // change between the moves.
 const MOVE_VARIATIONS = [
 { move:"Basket",           end:"bh",   note:"keep both", ending:true },
 { move:"Short First Move", end:"bh",   note:"trace R" },
-{ move:"Loop Throughs",    end:"lr",   note:"drop R" },
 { move:"Accordion",        start:"lr", note:"offer L" }
 ];
 
-// General hand swaps, usable after any move: [from position, to position, note]
+// General hand changes, usable after any move (the lead makes them; on the
+// follow's side their hand is moved). Takes and drops work almost anywhere.
+// [from position, to position, note]
 const HAND_SWAPS = [
-["lr", "rr", "swap to R"]
+["bh", "lr", "drop R"],
+["bh", "rl", "drop L"],
+["lr", "bh", "take"],          // could be an offer or trace, depending on the move
+["lr", "rr", "swap to R"],
+["rr", "lr", "swap to L"],
+["rl", "rr", "swap to R"],
+["rr", "rl", "swap to L"],
+["rl", "bh", "offer L"],
+["rl", "lr", "change both"],
+["lr", "rl", "change both"],
+["rr", "bh", "drop, take both"],
+["bh", "rr", "drop both, take R"]
 ];
 
 const COMBINATIONS = [
