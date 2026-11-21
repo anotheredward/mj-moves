@@ -4096,7 +4096,9 @@ function comboUrl(combo){
     if(combo) params.push(`moves=${combo.moves.map(slug).join(",")}`);
     if(combo?.loops) params.push("loop");
     if(combo?.id) params.push(`combo=${combo.id}`);     // optional, last
-    return params.length ? `?${params.join("&")}` : location.pathname.split("/").pop();
+    // no combination: just the page (its full path, which also works when
+    // it's served as a folder, e.g. .../mj-moves/ on GitHub Pages)
+    return params.length ? `?${params.join("&")}` : location.pathname;
 }
 
 function comboFromUrl(){
