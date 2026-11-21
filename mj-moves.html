@@ -1156,41 +1156,85 @@ body.menu-open #backdrop{
     filter:brightness(1.3);
 }
 
-/* energy / distance / smoothness: three tiles with an emoji each */
+/* Feel and Your notes: the panel's main sections */
+#movePanel h3.mp-section,
+#movePanel .flash-notes label{
+    margin:18px 0 4px;
+    font-size:16px;
+    font-weight:600;
+    color:var(--ink);
+}
+
+/* Feel: energy / distance / smoothness, three emoji pips each */
+.feel-why{
+    color:var(--ink-soft);
+    font-size:13px;
+}
+
 .feel{
     display:grid;
-    grid-template-columns:repeat(3, 1fr);
-    gap:8px;
-    margin:16px 0 4px;
+    gap:6px;
+    margin:10px 0 4px;
+    font-size:14px;
 }
 
-.feel-item{
-    display:flex;
-    flex-direction:column;
+.feel-row{
+    display:grid;
+    grid-template-columns:92px auto 1fr;
     align-items:center;
-    gap:1px;
-    padding:8px 4px;
-    border-radius:10px;
-    background:var(--canvas);
-    border:1px solid var(--rule);
-    text-align:center;
+    gap:10px;
 }
 
-.feel-emoji{
-    font-size:24px;
-    line-height:1.2;
+.feel-key{
+    color:var(--ink-soft);
+}
+
+.feel-scale{
+    display:flex;
+    gap:4px;
+}
+
+.feel-scale button{
+    width:40px;
+    height:32px;
+    padding:0;
+    border:none;
+    border-radius:8px;
+    background:#eeeeee;
+    font-size:17px;
+    line-height:1;
+    cursor:pointer;
+    filter:grayscale(1);
+    opacity:0.45;
+    transition:background-color 0.15s, opacity 0.15s;
+}
+
+.feel-scale button:hover{
+    opacity:0.8;
+}
+
+.feel-scale button.on{
+    background:var(--accent);
+    filter:none;
+    opacity:1;
 }
 
 .feel-value{
-    font-size:15px;
     font-weight:600;
     text-transform:capitalize;
 }
 
-.feel-key{
-    font-size:12px;
-    color:var(--ink-faded);
-    text-transform:capitalize;
+.feel-reset{
+    justify-self:start;
+    margin-top:2px;
+    padding:4px 0;
+    border:none;
+    background:none;
+    color:var(--accent-text);
+    font:inherit;
+    font-size:13px;
+    text-decoration:underline;
+    cursor:pointer;
 }
 
 #caption .step[data-move]{
@@ -4900,13 +4944,48 @@ function notesEditor(name){
     return box;
 }
 
-// Energy, distance and smoothness, each with an emoji.
-function feelView(move){
-    return el("div", {className:"feel"}, ...Object.keys(FEEL).map(key=>
-        el("div", {className:"feel-item"},
-            el("span", {className:"feel-emoji", ariaHidden:"true", textContent:FEEL_EMOJI[key][move[key]]}),
-            el("span", {className:"feel-value", textContent:move[key]}),
-            el("span", {className:"feel-key", textContent:key}))));
+// Your own feel for a move (energy, distance, smoothness), kept on this
+// device; anything you haven't set uses the move's usual value.
+const FEEL_KEY = "mj-moves:move-feel";
+const myFeel = loadJSON(FEEL_KEY);          // move name -> {energy, distance, smoothness}
+const feelOf = name => ({ ...Object.fromEntries(Object.keys(FEEL).map(k=>[k, MOVE_STATES.get(name)[k]])), ...myFeel[name] });
+
+function setFeel(name, key, value){
+    const mine = { ...myFeel[name], [key]:value };
+    if(MOVE_STATES.get(name)[key] === value) delete mine[key];   // back to the usual value
+    if(Object.keys(mine).length) myFeel[name] = mine;
+    else delete myFeel[name];
+    saveJSON(FEEL_KEY, myFeel);
+}
+
+// Three pips per scale, each with its emoji; tap one to choose your own.
+function feelView(name){
+    const box = el("div", {className:"feel"});
+    const paint = ()=>{
+        const feel = feelOf(name);
+        box.replaceChildren(...Object.entries(FEEL).map(([key, values])=>{
+            const label = key[0].toUpperCase() + key.slice(1);
+            const pips = el("span", {className:"feel-scale", role:"radiogroup", ariaLabel:label},
+                ...values.map(v=>{
+                    const pip = el("button", {type:"button", className:v === feel[key] ? "on" : "",
+                        textContent:FEEL_EMOJI[key][v], title:v, ariaLabel:v});
+                    pip.setAttribute("role", "radio");
+                    pip.setAttribute("aria-checked", v === feel[key]);
+                    pip.addEventListener("click", ()=>{ setFeel(name, key, v); paint(); });
+                    return pip;
+                }));
+            return el("div", {className:"feel-row"},
+                el("span", {className:"feel-key", textContent:label}), pips,
+                el("span", {className:"feel-value", textContent:feel[key]}));
+        }));
+        if(myFeel[name]){
+            const reset = el("button", {type:"button", className:"feel-reset", textContent:"Reset to usual"});
+            reset.addEventListener("click", ()=>{ delete myFeel[name]; saveJSON(FEEL_KEY, myFeel); paint(); });
+            box.append(reset);
+        }
+    };
+    paint();
+    return box;
 }
 
 function showMoveDetails(name){
@@ -4931,8 +5010,11 @@ function showMoveDetails(name){
                 el("span", {className:`mp-level ${move.level}`, textContent:move.level})),
             close),
         el("div", {className:"mp-holds"}, hold(move.from, "Starts in"), el("span", {className:"arrow", textContent:"→"}), hold(move.to, "Finishes in")),
-        notesEditor(name),
-        feelView(move)
+        el("h3", {className:"mp-section", textContent:"Feel"}),
+        el("p", {className:"mp-text feel-why", textContent:"Helps us choose which move best matches a moment in a song. " +
+            "High energy, distant moves for big moments. Sharp bouncy moves to match a rhythm. Smooth or close for delicate moments."}),
+        feelView(name),
+        notesEditor(name)
     ];
 
     const variations = MOVE_VARIATIONS.filter(v=>v.move === name).map(v=>v.end
