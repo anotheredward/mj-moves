@@ -2290,6 +2290,15 @@ button.cal-day{
 :root[data-theme="dark"] #statsTip,
 :root[data-theme="dark"] #toast{ background:#3a3d43; }
 
+.backup-open{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:8px;
+    width:100%;
+    margin-top:10px;
+}
+
 /* Appearance: Auto / Light / Dark, at the bottom of the menu */
 .theme-setting{
     display:flex;
@@ -2670,6 +2679,14 @@ button.cal-day{
 <div id="logBody" class="practice-body"></div>
 </div>
 
+<div id="backupPage" class="overlay-page" role="dialog" aria-modal="true" aria-labelledby="backupTitle" hidden>
+<header class="overlay-header">
+<h2 id="backupTitle">Backup &amp; restore</h2>
+<button type="button" id="backupClose" class="overlay-close" aria-label="Close backup and restore">✕</button>
+</header>
+<div id="backupBody" class="practice-body"></div>
+</div>
+
 <div id="statsPage" class="overlay-page" role="dialog" aria-modal="true" aria-labelledby="statsTitle" hidden>
 <header class="overlay-header">
 <h2 id="statsTitle">Statistics</h2>
@@ -2767,6 +2784,11 @@ Show intromediate moves
 <span id="themeLabel">Appearance</span>
 <div class="seg" id="themeGroup" role="radiogroup" aria-labelledby="themeLabel"></div>
 </div>
+
+<button type="button" id="backupBtn" class="secondary backup-open">
+<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>
+Backup &amp; restore
+</button>
 
 <p class="credit"><a href="https://fevah.dance/" target="_blank" rel="noopener">Unofficially inspired by Fevah Modern Jive</a></p>
 </nav>
@@ -3017,7 +3039,7 @@ const fitPadding = () => isCompact() ? 20 : 50;
 const dom = Object.fromEntries(
     ["container","graph","cy","caption","comboTitle","stepHighlight","menu","menuBtn","closeBtn","classSection","showIntro","superSlot","toast","randomSection","lengthGroup","loopCombo","generateBtn","favBtn","shareBtn","favList","favCount","movePanel","themeGroup","shuffleBtn","replaceBtn","avoidChanges",
      "backdrop","comboList","buildSection","buildSeq","buildUndo","buildClear","buildFromCurrent","buildMoves",
-     "logBtn","logPage","logBody","logClose","callerBtn","callerPage","callerBody","callerClose","flashBtn","flashPage","flashBody","flashClose","statsFx","statsBtn","statsPage","statsBody","statsClose","statsTip","prevBtn","nextBtn"].map(id=>[id, document.getElementById(id)])
+     "logBtn","logPage","logBody","logClose","backupBtn","backupPage","backupBody","backupClose","callerBtn","callerPage","callerBody","callerClose","flashBtn","flashPage","flashBody","flashClose","statsFx","statsBtn","statsPage","statsBody","statsClose","statsTip","prevBtn","nextBtn"].map(id=>[id, document.getElementById(id)])
 );
 
 // selection: the combination the user picked ({kind:"combo", combo} | null)
@@ -6229,6 +6251,177 @@ function closeLog(){
 dom.logBtn.addEventListener("click", ()=>{ logOpenId = null; openPage(dom.logPage, dom.logClose); renderLog(); });
 dom.logClose.addEventListener("click", closeLog);
 document.addEventListener("keydown", e=>{ if(e.key === "Escape") closeLog(); });
+
+// =====================================================================
+// Backup & restore: everything the app keeps in this browser (notes,
+// favourites, feel, flashcards, the Practice Log, settings, and - if you
+// choose - the videos attached to the log) saved to one file, and read
+// back on this or another device.
+// =====================================================================
+
+const BACKUP_PREFIX = "mj-moves:";
+const LAST_BACKUP_KEY = "mj-moves:last-backup";
+const BACKUP_FORMAT = "mj-moves-backup";
+
+function storedKeys(){
+    const keys = [];
+    for(let i = 0; i < localStorage.length; i++){
+        const k = localStorage.key(i);
+        if(k?.startsWith(BACKUP_PREFIX) && k !== LAST_BACKUP_KEY) keys.push(k);
+    }
+    return keys.sort();
+}
+
+// What a set of stored values amounts to, in words.
+function backupSummary(data, videoCount){
+    const parse = k=>{ try{ return JSON.parse(data[k] ?? "null"); }catch{ return null; } };
+    const count = v => Array.isArray(v) ? v.length : v && typeof v === "object" ? Object.keys(v).length : 0;
+    const combos = parse("mj-moves:combo-stats") || {};
+    const favs = Object.values(combos).filter(v=>v?.fav).length;
+    const practiced = Object.values(combos).reduce((n, v)=>n + (v?.done || 0), 0);
+    const lines = [
+        [count(parse("mj-moves:move-notes")), "move", "with notes"],
+        [favs, "favourite", ""],
+        [practiced, "tick", "on combinations"],
+        [count(parse("mj-moves:move-feel")), "move", "with your own feel"],
+        [count(parse("mj-moves:flashcards")), "flashcard", "studied"],
+        [count(parse(LOG_KEY)), "log entry", ""],
+        [videoCount, "video", ""]
+    ];
+    return lines.filter(([n])=>n).map(([n, word, rest])=>
+        `${n} ${n === 1 ? word : word === "log entry" ? "log entries" : word + "s"}${rest ? " " + rest : ""}`);
+}
+
+const blobToDataUrl = blob=>new Promise((resolve, reject)=>{
+    const r = new FileReader();
+    r.onload = ()=>resolve(r.result);
+    r.onerror = ()=>reject(r.error);
+    r.readAsDataURL(blob);
+});
+
+async function makeBackup(withVideos){
+    const data = Object.fromEntries(storedKeys().map(k=>[k, localStorage.getItem(k)]));
+    const videos = {};
+    if(withVideos){
+        for(const e of logEntries.filter(e=>e.video)){
+            try{
+                const blob = await videoStore.get(e.id);
+                if(blob) videos[e.id] = { name:e.video.name, type:blob.type || e.video.type, data:await blobToDataUrl(blob) };
+            }catch{ /* skip a video that can't be read */ }
+        }
+    }
+    return { format:BACKUP_FORMAT, version:1, exported:new Date().toISOString(), data, videos };
+}
+
+async function saveBackup(withVideos, button){
+    button.disabled = true;
+    const label = button.textContent;
+    button.textContent = "Preparing…";
+    try{
+        const backup = await makeBackup(withVideos);
+        const name = `mj-moves-backup-${today()}${withVideos ? "-with-videos" : ""}.json`;
+        const file = new File([JSON.stringify(backup)], name, { type:"application/json" });
+        let shared = false;
+        if(matchMedia("(pointer: coarse)").matches && navigator.canShare?.({ files:[file] })){
+            try{ await navigator.share({ files:[file], title:"Modern Jive Moves backup" }); shared = true; }
+            catch(e){ if(e.name === "AbortError"){ return; } }
+        }
+        if(!shared){
+            const a = el("a", { href:URL.createObjectURL(file), download:name });
+            document.body.append(a);
+            a.click();
+            a.remove();
+            setTimeout(()=>URL.revokeObjectURL(a.href), 10000);
+        }
+        localStorage.setItem(LAST_BACKUP_KEY, new Date().toISOString());
+        showToast("Backup saved");
+        renderBackup();
+    }catch{
+        showToast("Couldn't make the backup");
+    }finally{
+        button.disabled = false;
+        button.textContent = label;
+    }
+}
+
+async function restoreBackup(file){
+    let backup;
+    try{ backup = JSON.parse(await file.text()); }catch{ backup = null; }
+    if(backup?.format !== BACKUP_FORMAT || typeof backup.data !== "object"){
+        showToast("That file isn't a Modern Jive Moves backup");
+        return;
+    }
+    const videos = backup.videos && typeof backup.videos === "object" ? backup.videos : {};
+    const what = backupSummary(backup.data, Object.keys(videos).length);
+    const when = new Date(backup.exported).toLocaleString();
+    if(!confirm(`Restore the backup from ${when}?\n\n${what.length ? what.join("\n") : "(no saved data)"}\n\n` +
+                "This replaces everything the app has saved on this device.")) return;
+    try{
+        for(const k of storedKeys()) localStorage.removeItem(k);
+        for(const [k, v] of Object.entries(backup.data)){
+            if(k.startsWith(BACKUP_PREFIX) && typeof v === "string") localStorage.setItem(k, v);
+        }
+        for(const [id, v] of Object.entries(videos)){
+            const blob = await (await fetch(v.data)).blob();
+            await videoStore.put(id, blob);
+        }
+    }catch{
+        showToast("Couldn't restore everything - the device may be out of space");
+        return;
+    }
+    location.reload();          // start again with the restored data
+}
+
+function renderBackup(){
+    if(dom.backupPage.hidden) return;
+    const keys = storedKeys();
+    const data = Object.fromEntries(keys.map(k=>[k, localStorage.getItem(k)]));
+    const withVideo = logEntries.filter(e=>e.video);
+    const videoBytes = withVideo.reduce((n, e)=>n + (e.video.size || 0), 0);
+    const what = backupSummary(data, withVideo.length);
+    const last = localStorage.getItem(LAST_BACKUP_KEY);
+    const lastText = last ? (()=>{ const d = daysAgo(dayString(new Date(last)));
+        return d === 0 ? "today" : d === 1 ? "yesterday" : `${d} days ago`; })() : null;
+
+    const include = el("input", {type:"checkbox", checked:false, disabled:!withVideo.length});
+    const save = el("button", {type:"button", className:"primary big-action", textContent:"Save backup"});
+    save.addEventListener("click", ()=>saveBackup(include.checked, save));
+
+    const input = el("input", {type:"file", accept:"application/json,.json", hidden:true});
+    const restore = el("button", {type:"button", className:"secondary big-action", textContent:"Restore from a backup…"});
+    restore.addEventListener("click", ()=>input.click());
+    input.addEventListener("change", ()=>{ if(input.files?.[0]) restoreBackup(input.files[0]); input.value = ""; });
+
+    dom.backupBody.replaceChildren(
+        el("p", {className:"intent"},
+            el("b", {textContent:"Keep your notes and progress safe. "}),
+            "Everything you add - notes, favourites, your feel for each move, flashcards and the Practice Log - " +
+            "is saved only in this browser on this device. Save a backup now and then, and restore it on a new phone " +
+            "or after clearing your browser."),
+        el("h3", {className:"log-h", textContent:"What's saved"}),
+        what.length ? el("ul", {className:"flash-facts"}, ...what.map(t=>el("li", {textContent:t})))
+                    : el("p", {className:"mp-text", textContent:"Nothing yet - just your settings."}),
+        setting("Include videos", withVideo.length
+            ? `${plural(withVideo.length, "video")} from the Practice Log, ${sizeText(videoBytes)} - makes the file much bigger`
+            : "No videos attached to the log", include),
+        save,
+        el("p", {className:"summary-line", textContent:last
+            ? `Last backup: ${lastText}.` : "You haven't saved a backup on this device yet."}),
+        restore, input,
+        el("p", {className:"mp-text log-hint", textContent:
+            "Restoring replaces what's saved here with the backup's contents. Video links are always included; " +
+            "videos from your camera roll only if you tick Include videos."}));
+}
+
+function closeBackup(){
+    if(dom.backupPage.hidden) return;
+    dom.backupPage.hidden = true;
+    dom.backupBtn.focus({preventScroll:true});
+}
+
+dom.backupBtn.addEventListener("click", ()=>{ openPage(dom.backupPage, dom.backupClose); renderBackup(); });
+dom.backupClose.addEventListener("click", closeBackup);
+document.addEventListener("keydown", e=>{ if(e.key === "Escape") closeBackup(); });
 
 renderBuilder();
 
