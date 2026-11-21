@@ -3861,7 +3861,8 @@ dom.shuffleBtn.addEventListener("click", ()=>{
     if(!result){ showToast("There's no other order for these moves"); return; }
     state.preview = null;
     const shuffledCombo = { id:null, caption:"Shuffled", moves:result.moves, loops:combo.loops };
-    selectCombo(shuffledCombo);
+    if(combo.caption === "Built") setBuilt(result.moves);       // keep building from it
+    else selectCombo(shuffledCombo);
     const n = handChanges(shuffledCombo);
     showToast(n ? `Shuffled: ${plural(n, "hand change")} needed` : "Shuffled: no hand changes needed");
     closeMenu();
@@ -3878,7 +3879,9 @@ dom.replaceBtn.addEventListener("click", ()=>{
     const result = combo && replaceHandChange(combo);
     if(!result) return;
     state.preview = null;
-    selectCombo({ id:null, caption:"Custom", moves:result.moves, loops:combo.loops });
+    // a built combination stays in the builder, so you can keep building
+    if(combo.caption === "Built") setBuilt(result.moves);
+    else selectCombo({ id:null, caption:"Custom", moves:result.moves, loops:combo.loops });
     showToast(`Replaced "${result.replaced}" with ${result.with}`);
     closeMenu();
 });
