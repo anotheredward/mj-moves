@@ -9,10 +9,22 @@
 <script src="https://unpkg.com/cytoscape@3.35.0/dist/cytoscape.min.js"></script>
 
 <style>
+/* Design tokens, shared with the graph styles in the script */
+:root{
+    --font: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --accent: #b35300;        /* burnt orange: white text on it is 5:1 */
+    --accent-soft: #fff1e6;
+    --ink: #222;
+    --ink-soft: #555;
+    --rule: #e3e3e3;
+    --canvas: #fafafa;
+}
+
 html, body {
     margin:0;
     height:100%;
-    font-family:sans-serif;
+    font-family:var(--font);
+    color:var(--ink);
 }
 
 #container{
@@ -30,7 +42,7 @@ html, body {
     gap:8px;
     padding:8px 10px;
     padding-top:calc(8px + env(safe-area-inset-top));
-    border-bottom:1px solid #ccc;
+    border-bottom:1px solid var(--rule);
     background:white;
     flex:0 0 auto;
 }
@@ -39,53 +51,91 @@ html, body {
     min-width:44px;
     min-height:44px;
     font-size:20px;
-    border:1px solid #ccc;
+    color:var(--ink-soft);
+    border:none;
     border-radius:8px;
-    background:white;
+    background:none;
     cursor:pointer;
     -webkit-tap-highlight-color:transparent;
+}
+
+#topbar button:hover,
+#topbar button:focus-visible{
+    background:#f0f0f0;
+}
+
+#topbar button:active{
+    background:#e6e6e6;
 }
 
 #menuBtn{
     font-size:22px;
 }
 
+/* One line that scrolls sideways if the combination is long; the step the
+   comet is on is kept in view. */
 #caption{
     flex:1;
     min-width:0;
+    display:flex;
+    align-items:center;
+    justify-content:safe center;
+    gap:0;
+    position:relative;        /* so chip offsetLeft is measured from here */
+    overflow-x:auto;
+    scrollbar-width:none;
+    white-space:nowrap;
     font-size:15px;
-    color:#333;
-    text-align:center;
+    color:var(--ink);
+    scroll-behavior:smooth;
+}
+
+#caption::-webkit-scrollbar{
+    display:none;
+}
+
+#caption .combo-id{
+    color:var(--ink-soft);
+    margin-right:4px;
+}
+
+#caption .arrow{
+    color:#aaa;
 }
 
 .note{
     display:inline-block;
     font-style:italic;
     font-size:0.85em;
-    color:#a35800;
-    background:#fff3e0;
-    border:1px dashed #ff9900;
+    color:var(--accent);
+    border:1px dashed var(--accent);
     border-radius:10px;
     padding:0 6px;
+    line-height:1.5;
     white-space:nowrap;
 }
 
-/* the step the comet is currently travelling */
+/* Caption steps are chips; the one the comet is on is filled, so the
+   caption doubles as a progress indicator. */
 #caption .step{
-    border-radius:4px;
-    padding:0 2px;
+    display:inline-block;
+    border-radius:10px;
+    padding:0 7px;
+    line-height:1.5;
+    background:#f1f1f1;
+    white-space:nowrap;
     transition:background-color 0.15s, color 0.15s;
 }
 
 #caption .step.current,
 #caption .note.current{
-    background:#ff9900;
+    background:var(--accent);
     color:white;
-    border-color:#ff9900;
+    border-color:var(--accent);
 }
 
 #caption .placeholder{
-    color:#888;
+    color:#777;
 }
 
 #graph{
@@ -99,7 +149,7 @@ html, body {
 #cy{
     position:absolute;
     inset:0;
-    background:#fafafa;
+    background:var(--canvas);
 }
 
 /* Lights up the single line of a graph label that the comet is on
@@ -108,7 +158,7 @@ html, body {
     position:absolute;
     display:none;
     box-sizing:border-box;
-    background:#ff9900;
+    background:var(--accent);
     color:white;
     text-align:center;
     white-space:nowrap;
@@ -195,8 +245,29 @@ body.menu-open #backdrop{
 }
 
 .combo.active{
-    background:#fff3e0;
-    border-color:#ff9900;
+    background:var(--accent-soft);
+    border-color:var(--accent);
+}
+
+/* small multiples: the hand positions a combination passes through */
+.combo-shape{
+    display:flex;
+    align-items:center;
+    gap:2px;
+    margin:4px 0 2px;
+}
+
+.combo-shape img{
+    width:22px;
+    height:22px;
+    border:1px solid var(--rule);
+    border-radius:4px;
+    background:white;
+}
+
+.combo-shape .arrow{
+    color:#bbb;
+    font-size:11px;
 }
 
 .combo-title{
@@ -205,7 +276,7 @@ body.menu-open #backdrop{
 
 .combo-moves{
     font-size:14px;
-    color:#555;
+    color:var(--ink-soft);
 }
 
 .hint{
@@ -304,6 +375,8 @@ const combinations = [
 [13,["Squeezebox","Left Side Change","Back Pass"]]
 ];
 
+const moveStates = Object.fromEntries(moves.map(([m,from,to])=>[m,[from,to]]));
+
 // ---------- Group moves into one edge per (from, to) pair ----------
 
 const groups = new Map();   // "from|to" -> {from, to, moves:[]}
@@ -339,6 +412,10 @@ const NODE_HANDS = {
     bh:["tl","tr","bl","br"]
 };
 
+// Graph colours/fonts, matching the CSS tokens at the top of the page.
+const ACCENT = "#b35300";              // highlighted path (5:1 against white text)
+const FONT = getComputedStyle(document.documentElement).getPropertyValue("--font").trim();
+
 // Lead's hands are blue; follow's hands are silver (dark enough that the
 // white letter stays readable on a white node).
 const LEAD_COLOR = "#2d7ff9";
@@ -366,7 +443,7 @@ function slotSvg(slot, filled){
     const y = PAD + slot.row*(CELL+GAP);
     if(!filled){
         return `<rect x="${x+3}" y="${y+3}" width="${CELL-6}" height="${CELL-6}" rx="6"
-            fill="none" stroke="#d4d4d4" stroke-width="1.5" stroke-dasharray="4 3"/>`;
+            fill="none" stroke="#dcdcdc" stroke-width="1.2" stroke-dasharray="1.5 3" stroke-linecap="round"/>`;
     }
     // Thumbs point toward the centre line: left column -> right, right column -> left.
     const thumbRight = slot.col===0;
@@ -378,7 +455,7 @@ function slotSvg(slot, filled){
         : handShape(thumbRight, color);
     const textY = fingersDown ? 18 : 38;     // centre of the palm
     return `<g transform="translate(${x} ${y})">${shape}
-        <text x="23" y="${textY}" text-anchor="middle" font-family="sans-serif"
+        <text x="23" y="${textY}" text-anchor="middle" font-family="${FONT.replace(/"/g,"'")}"
             font-size="15" font-weight="bold" fill="white">${slot.letter}</text></g>`;
 }
 
@@ -488,8 +565,8 @@ style:{
 'width':84,
 'height':84,
 'background-color':'white',
-'border-width':2,
-'border-color':'#2d7ff9',
+'border-width':1,
+'border-color':'#cfcfcf',
 'background-image':'data(icon)',
 'background-fit':'contain',
 'background-clip':'none',
@@ -510,11 +587,11 @@ style:{
 'source-endpoint':'outside-to-node',
 'target-endpoint':'outside-to-node',
 'target-arrow-shape':'triangle',
-'line-color':'#888',
-'target-arrow-color':'#888',
+'line-color':'#8c8c8c',
+'target-arrow-color':'#8c8c8c',
 'font-size':15,
 // the device's own UI font is crisper on screen than Helvetica fallbacks
-'font-family':'system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+'font-family':FONT,
 'color':'#222',
 'text-rotation':'none',
 'text-background-shape':'roundrectangle',
@@ -522,7 +599,7 @@ style:{
 'text-background-color':'#fafafa',   // same as the graph background, so the box is invisible
 'text-background-padding':4,
 // thicker line = more moves on that transition
-'width':'mapData(count, 1, 10, 2, 5)',
+'width':'mapData(count, 1, 10, 1.5, 4)',
 'arrow-scale':1.2
 }
 },
@@ -560,20 +637,20 @@ style:{
 {
 selector:"edge.dim",
 style:{
-// faded but still readable, so labels never vanish
-'line-color':'#e2e2e2',
-'target-arrow-color':'#e2e2e2',
-'color':'#666',
+// pushed into the background, but the structure stays visible
+'line-color':'#cdcdcd',
+'target-arrow-color':'#cdcdcd',
+'color':'#737373',
 }
 },
 
 {
 selector:".highlight",
 style:{
-'line-color':'#ff9900',
-'target-arrow-color':'#ff9900',
-'width':6,
-'color':'#b35c00',
+'line-color':ACCENT,
+'target-arrow-color':ACCENT,
+'width':'mapData(count, 1, 10, 3.5, 6)',
+'color':ACCENT,
 'font-weight':'bold',
 'z-index':999
 }
@@ -589,7 +666,7 @@ style:{
 'source-text-offset':'data(labelOffset)',
 'line-style':'dashed',
 'line-dash-pattern':[8,6],
-'width':3,
+'width':2.5,
 'font-style':'italic',
 'font-weight':'normal',
 }
@@ -629,7 +706,7 @@ function offsetLoopLabels(){
     const size = labelFontSize();
     cy.edges(":loop").forEach(edge=>{
         const lines = edge.data("edgeLabel").split("\n");
-        measureCtx.font = `${edge.hasClass("highlight") ? "bold " : ""}${size}px sans-serif`;
+        measureCtx.font = `${edge.hasClass("highlight") ? "bold " : ""}${size}px ${FONT}`;
         const w = Math.max(...lines.map(l=>measureCtx.measureText(l).width)) + 10;
         const h = lines.length * size * 1.3 + 10;
         const rad = edge.data("loopDirection") * Math.PI / 180;
@@ -802,7 +879,11 @@ function setActiveStep(j){
     if(j < 0 || !pulseRoute[j]) return;
     if(pulseOwner >= 0 && pulseOwner === selected){
         const el = caption.querySelector(`[data-step="${pulseSteps[j]}"]`);
-        if(el) el.classList.add("current");
+        if(el){
+            el.classList.add("current");
+            // keep the current step centred in a caption that overflows
+            caption.scrollLeft = el.offsetLeft - (caption.clientWidth - el.offsetWidth) / 2;
+        }
     }
 }
 
@@ -1055,11 +1136,37 @@ function setCaption(text, placeholder){
     caption.appendChild(span);
 }
 
+function arrowNode(){
+    const a = document.createElement("span");
+    a.className = "arrow";
+    a.textContent = " → ";
+    return a;
+}
+
+// Hand positions a combination passes through (start, then after each move),
+// drawn as tiny node icons: a "small multiple" of the combination's shape.
+function shapeNodes(moves){
+    const states = [];
+    moves.forEach(name=>{
+        const [from, to] = moveStates[name];
+        if(states[states.length-1] !== from) states.push(from);
+        states.push(to);
+    });
+    const row = document.createElement("div");
+    row.className = "combo-shape";
+    row.setAttribute("aria-hidden", "true");
+    states.forEach((st,i)=>{
+        if(i) row.append(Object.assign(document.createElement("span"), {className:"arrow", textContent:"›"}));
+        row.append(Object.assign(document.createElement("img"), {src:nodeIcon(st), alt:""}));
+    });
+    return row;
+}
+
 // "Shoulder Block → [swap to R] → Block & Turn", built as DOM nodes.
 function sequenceNodes(moves, notes={}){
     const parts = [];
     moves.forEach((name,i)=>{
-        if(i) parts.push(document.createTextNode(" → "));
+        if(i) parts.push(arrowNode());
         const step = document.createElement("span");
         step.className = "step";
         step.dataset.step = `m${i}`;
@@ -1070,7 +1177,7 @@ function sequenceNodes(moves, notes={}){
             tag.className = "note";
             tag.dataset.step = `t${i}`;
             tag.textContent = notes[name];
-            parts.push(document.createTextNode(" → "), tag);
+            parts.push(arrowNode(), tag);
         }
     });
     return parts;
@@ -1087,7 +1194,8 @@ function select(index){
     }else{
         const [id,moves,notes]=combinations[selected];
         caption.innerHTML="";
-        caption.append(`${id}: `, ...sequenceNodes(moves, notes));
+        const label = Object.assign(document.createElement("span"), {className:"combo-id", textContent:`${id}`});
+        caption.append(label, ...sequenceNodes(moves, notes));
     }
 
     showSelected();
@@ -1109,6 +1217,7 @@ combinations.forEach(([id,moves,notes],i)=>{
     div.setAttribute("tabindex","0");
 
     div.innerHTML=`<div class="combo-title">Combination ${id}</div>`;
+    div.appendChild(shapeNodes(moves));
     const seq=document.createElement("div");
     seq.className="combo-moves";
     seq.append(...sequenceNodes(moves, notes));
