@@ -5,7 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Dance State Transition Graph</title>
 
-<script src="https://unpkg.com/cytoscape/dist/cytoscape.min.js"></script>
+<!-- Pinned: the pulse animation reads Cytoscape's internal edge geometry and label bounds. -->
+<script src="https://unpkg.com/cytoscape@3.35.0/dist/cytoscape.min.js"></script>
 
 <style>
 html, body {
@@ -337,7 +338,7 @@ function nodeIcon(id){
 }
 
 ["rr","lr","rl","bh"].forEach(id=>{
-    elements.push({ data:{ id, label:id, icon:nodeIcon(id) } });
+    elements.push({ data:{ id, label:id, icon:nodeIcon(id) }, classes:"state" });
 });
 
 groups.forEach(({from,to,moves:names},key)=>{
@@ -416,7 +417,7 @@ elements,
 style:[
 
 {
-selector:"node",
+selector:"node.state",
 style:{
 'shape':'round-rectangle',
 'width':84,
@@ -511,6 +512,24 @@ style:{
 'text-border-color':'#ff9900',
 'z-index':999
 }
+},
+
+{
+selector:"node.pulse",
+style:{
+'shape':'ellipse',
+'width':'data(size)',
+'height':'data(size)',
+'background-color':'white',
+// soft glow around each dot
+'underlay-color':'white',
+'underlay-padding':4,
+'underlay-opacity':0.45,
+'underlay-shape':'ellipse',
+'opacity':0,
+'events':'no',
+'z-index':1000
+}
 }
 
 ],
@@ -554,11 +573,11 @@ function updateLabels(){
 // label off the edge on phones. If it does, zoom out just enough to fit.
 function keepLabelsOnScreen(){
     if(!isCompact()) return;
-    const box = cy.elements().renderedBoundingBox();
+    const box = graphElements().renderedBoundingBox();
     const pad = 4;
     if(box.x1 < pad || box.y1 < pad ||
        box.x2 > cy.width() - pad || box.y2 > cy.height() - pad){
-        cy.fit(undefined, fitPadding());
+        cy.fit(graphElements(), fitPadding());
     }
 }
 
@@ -567,11 +586,164 @@ function applyLayout(){
     cy.edges(":loop").forEach(edge=>{
         edge.data("loopDirection", layout.loop[edge.data("source")]);
     });
-    cy.nodes().forEach(node=>node.position(layout.pos[node.id()]));
+    cy.nodes(".state").forEach(node=>node.position(layout.pos[node.id()]));
     cy.resize();
     updateLabels();   // before fit, so the fit accounts for label sizes
-    cy.fit(undefined, fitPadding());
+    cy.fit(graphElements(), fitPadding());
+    resetPulsePath();  // lines moved, so the pulse needs the new shapes
 }
+
+// ---------- Pulse animation ----------
+// A white comet glides along the highlighted lines, move by move in
+// execution order, pauses briefly, then repeats. Its path comes from
+// Cytoscape's internal edge geometry: every edge here is drawn as a chain
+// of quadratic curves stored in rscratch.allpts as
+// [start, control, end, control, end, ...] (x,y pairs).
+
+const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+const PULSE_SPEED = 320;     // model units per second
+const PULSE_PAUSE = 700;     // ms with no comet between loops
+const PULSE_TAIL = [         // head first: size and opacity of each dot
+    {size:15, alpha:1},
+    {size:13, alpha:0.85},
+    {size:12, alpha:0.7},
+    {size:11, alpha:0.55},
+    {size:10, alpha:0.42},
+    {size:9,  alpha:0.3},
+    {size:8,  alpha:0.2},
+    {size:7,  alpha:0.12}
+];
+const PULSE_SPACING = 7;     // distance between tail dots
+
+const pulseDots = cy.add(PULSE_TAIL.map((d,i)=>({
+    group:"nodes",
+    data:{ id:"pulse"+i, size:d.size },
+    classes:"pulse",
+    position:{x:0, y:0}
+}))).ungrabify().unselectify();
+
+let pulseRoute = [];
+let pulsePath = null;
+let pulseStart = 0;
+let pulseFrame = null;
+
+function graphElements(){
+    return cy.elements().not(".pulse");
+}
+
+// Sample the route into one polyline with cumulative distances.
+function buildPulsePath(){
+    const pts = [];
+    const add = (x,y)=>{
+        const n = pts.length;
+        if(n && Math.hypot(x-pts[n-1].x, y-pts[n-1].y) < 0.01) return;
+        pts.push({x,y});
+    };
+    for(const edge of pulseRoute){
+        const a = edge._private.rscratch.allpts;
+        if(!a || a.length < 6) continue;
+        for(let i=0; i+5<a.length; i+=4){
+            const [x0,y0,cx,cy_,x1,y1] = a.slice(i, i+6);
+            for(let k=0; k<=24; k++){
+                const t=k/24, u=1-t;
+                add(u*u*x0 + 2*u*t*cx + t*t*x1, u*u*y0 + 2*u*t*cy_ + t*t*y1);
+            }
+        }
+    }
+    const cum = [0];
+    for(let i=1; i<pts.length; i++){
+        cum.push(cum[i-1] + Math.hypot(pts[i].x-pts[i-1].x, pts[i].y-pts[i-1].y));
+    }
+    return { pts, cum, total: cum[cum.length-1] || 0 };
+}
+
+function pointAt(path, d){
+    const {pts, cum} = path;
+    let lo=0, hi=cum.length-1;
+    while(hi-lo > 1){
+        const mid=(lo+hi)>>1;
+        if(cum[mid] <= d) lo=mid; else hi=mid;
+    }
+    const span = cum[hi]-cum[lo] || 1;
+    const t = (d-cum[lo])/span;
+    return { x: pts[lo].x + (pts[hi].x-pts[lo].x)*t,
+             y: pts[lo].y + (pts[hi].y-pts[lo].y)*t };
+}
+
+// Boxes of all visible edge labels (model coordinates). Uses Cytoscape's
+// internal labelBounds, which is why the library version is pinned.
+function labelBoxes(){
+    const boxes = [];
+    cy.edges().forEach(edge=>{
+        const b = edge._private.labelBounds && edge._private.labelBounds.main;
+        if(b && b.w > 0 && b.h > 0) boxes.push(b);
+    });
+    return boxes;
+}
+
+function hidePulse(){
+    pulseDots.style("opacity", 0);
+}
+
+function resetPulsePath(){
+    pulsePath = null;
+}
+
+function setPulseRoute(edges){
+    pulseRoute = edges;
+    pulsePath = null;
+    pulseStart = performance.now();
+    if(!edges.length || reduceMotion.matches){
+        hidePulse();
+        return;
+    }
+    if(pulseFrame === null) pulseFrame = requestAnimationFrame(pulseTick);
+}
+
+let lastCycle = -1;
+function pulseTick(now){
+    pulseFrame = null;
+    if(!pulseRoute.length || reduceMotion.matches){
+        hidePulse();
+        return;
+    }
+    if(!pulsePath) pulsePath = buildPulsePath();
+    const total = pulsePath.total;
+    if(total > 0){
+        const travel = total / PULSE_SPEED * 1000;
+        const cycleLen = travel + PULSE_PAUSE;
+        const elapsed = now - pulseStart;
+        const cycle = Math.floor(elapsed / cycleLen);
+        if(cycle !== lastCycle){
+            // refresh the shape each loop in case lines were re-laid out
+            lastCycle = cycle;
+            pulsePath = buildPulsePath();
+        }
+        const head = (elapsed % cycleLen) / travel * total;
+        const boxes = labelBoxes();
+        cy.batch(()=>{
+            pulseDots.forEach((dot,i)=>{
+                const d = head - i*PULSE_SPACING;
+                if(d < 0 || d > total){
+                    dot.style("opacity", 0);
+                    return;
+                }
+                const pos = pointAt(pulsePath, d);
+                dot.position(pos);
+                // Nodes always draw above edge labels, so to make the comet
+                // pass *under* a label, hide any dot (incl. glow) touching one.
+                const r = PULSE_TAIL[i].size/2 + 4;
+                const covered = boxes.some(b=>
+                    pos.x + r > b.x1 && pos.x - r < b.x2 &&
+                    pos.y + r > b.y1 && pos.y - r < b.y2);
+                dot.style("opacity", covered ? 0 : PULSE_TAIL[i].alpha);
+            });
+        });
+    }
+    pulseFrame = requestAnimationFrame(pulseTick);
+}
+
+reduceMotion.addEventListener("change", ()=>setPulseRoute(pulseRoute));
 
 // ---------- Highlighting ----------
 
@@ -579,6 +751,7 @@ function clearHighlight(){
     cy.elements().removeClass("dim highlight");
     cy.edges().forEach(edge=>edge.data("edgeLabel", edge.data("fullLabel")));
     updateLabels();
+    setPulseRoute([]);
 }
 
 function dimAll(){
@@ -605,6 +778,10 @@ function highlight(comboMoves){
         }
     });
     updateLabels();
+    // pulse travels the moves in execution order
+    setPulseRoute(comboMoves
+        .map(name=>cy.edges().filter(e=>e.data("moves").includes(name))[0])
+        .filter(Boolean));
 }
 
 // Highlight a single edge with its full move list (used when tapping a line).
@@ -612,6 +789,7 @@ function highlightEdge(edge){
     dimAll();
     lightUp(edge, edge.data("fullLabel"));
     updateLabels();
+    setPulseRoute([edge]);
 }
 
 // ---------- Menu ----------
