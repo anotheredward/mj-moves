@@ -2331,6 +2331,116 @@ button.cal-day{
     background:rgba(255,255,255,0.1);
 }
 
+/* the night sky behind the diary: drifting aurora, and stars turning
+   slowly about a pole above the top of the page */
+.secret-sky{
+    position:fixed;
+    inset:0;
+    z-index:0;
+    overflow:hidden;
+    pointer-events:none;
+}
+
+.secret-page > .overlay-header,
+.secret-page > .practice-body{
+    position:relative;
+    z-index:1;
+}
+
+.secret-page > .overlay-header{
+    position:sticky;
+    z-index:2;
+}
+
+.aurora{
+    position:absolute;
+    width:120vmax;
+    height:60vmax;
+    border-radius:50%;
+    filter:blur(60px);
+    opacity:0.45;
+    mix-blend-mode:screen;
+}
+
+.aurora.a1{
+    left:-30vmax;
+    top:-25vmax;
+    background:radial-gradient(closest-side, rgba(80,255,190,0.7), transparent);
+    animation:aurora-1 22s ease-in-out infinite alternate;
+}
+
+.aurora.a2{
+    right:-40vmax;
+    top:-10vmax;
+    background:radial-gradient(closest-side, rgba(150,110,255,0.75), transparent);
+    animation:aurora-2 28s ease-in-out infinite alternate;
+}
+
+.aurora.a3{
+    left:-10vmax;
+    top:15vmax;
+    background:radial-gradient(closest-side, rgba(60,170,255,0.55), transparent);
+    animation:aurora-3 34s ease-in-out infinite alternate;
+}
+
+@keyframes aurora-1{
+    from{ transform:translate(0, 0) rotate(-8deg) scale(1); }
+    to  { transform:translate(18vmax, 8vmax) rotate(10deg) scale(1.15); }
+}
+
+@keyframes aurora-2{
+    from{ transform:translate(0, 0) rotate(12deg) scale(1.1); }
+    to  { transform:translate(-22vmax, 12vmax) rotate(-6deg) scale(0.9); }
+}
+
+@keyframes aurora-3{
+    from{ transform:translate(0, 0) rotate(0deg); filter:blur(60px) hue-rotate(0deg); }
+    to  { transform:translate(10vmax, -14vmax) rotate(15deg); filter:blur(60px) hue-rotate(40deg); }
+}
+
+/* a big wheel centred above the page; only the bottom of it shows, so
+   its stars sweep across the top in arcs */
+.star-wheel{                    /* centre 60vmax above the page, radius 85vmax */
+    position:absolute;
+    left:50%;
+    top:-145vmax;
+    width:170vmax;
+    height:170vmax;
+    margin-left:-85vmax;
+    animation:star-turn 300s linear infinite;
+}
+
+.star-wheel i{
+    position:absolute;
+    left:50%;
+    top:50%;
+    width:var(--s);
+    height:var(--s);
+    border-radius:50%;
+    background:white;
+    box-shadow:0 0 6px rgba(255,255,255,0.8);
+    transform:rotate(var(--a)) translateY(var(--r));
+    opacity:var(--o);
+}
+
+.star-wheel i.tw{
+    animation:twinkle var(--t) ease-in-out infinite alternate;
+    animation-delay:var(--d);
+}
+
+@keyframes star-turn{
+    to{ transform:rotate(360deg); }
+}
+
+@keyframes twinkle{
+    from{ opacity:0.25; }
+    to  { opacity:0.9; }
+}
+
+@media (prefers-reduced-motion:reduce){
+    .aurora, .star-wheel, .star-wheel i{ animation:none; }
+}
+
 .secret-intro{
     margin:8px 0 18px;
     font-size:18px;
@@ -2774,6 +2884,10 @@ button.cal-day{
 </div>
 
 <div id="secretPage" class="overlay-page secret-page" role="dialog" aria-modal="true" aria-labelledby="secretTitle" hidden>
+<div class="secret-sky" aria-hidden="true">
+<div class="aurora a1"></div><div class="aurora a2"></div><div class="aurora a3"></div>
+<div class="star-wheel" id="starWheel"></div>
+</div>
 <header class="overlay-header">
 <h2 id="secretTitle">🔐 Secret Notes</h2>
 <button type="button" id="secretClose" class="overlay-close" aria-label="Lock and close">🔒</button>
@@ -6537,6 +6651,21 @@ function secretFoot(){
     dom.secretFoot.textContent = words
         ? `🤫 ${words} secret word${words === 1 ? "" : "s"} · kept on this device only`
         : "🤫 Kept on this device only";
+}
+
+// Stars on the wheel: in a band near its rim, so they show as arcs along
+// the top of the page; fainter and fewer further down.
+{
+    const wheel = document.getElementById("starWheel");
+    for(let i = 0; i < 260; i++){
+        const star = document.createElement("i");
+        const depth = Math.pow(Math.random(), 1.5);             // most near the top edge
+        const r = 60 + depth * 24;                              // vmax from the pole: 60 = top of the page
+        if(i % 3 === 0) star.className = "tw";                  // a third twinkle
+        star.style.cssText = `--a:${Math.random()*360}deg;--r:${r.toFixed(1)}vmax;--s:${(1 + Math.random()*1.6).toFixed(1)}px;` +
+            `--o:${(0.85 - depth*0.6).toFixed(2)};--t:${(2 + Math.random()*4).toFixed(1)}s;--d:${(-Math.random()*6).toFixed(1)}s`;
+        wheel.append(star);
+    }
 }
 
 dom.secretBtn.addEventListener("click", ()=>{
