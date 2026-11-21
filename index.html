@@ -288,6 +288,16 @@ html, body {
 
 /* Lights up the single line of a graph label that the comet is on
    (Cytoscape can't style one line of a label on its own). */
+/* The comet, drawn over the graph on its own canvas: moving it then
+   doesn't make the graph library redraw the whole graph every frame. */
+#cometCanvas{
+    position:absolute;
+    inset:0;
+    width:100%;
+    height:100%;
+    pointer-events:none;
+}
+
 #stepHighlight{
     position:absolute;
     display:none;
@@ -2853,6 +2863,7 @@ body:has(.overlay-page:not([hidden])) .stats-open.fancy::after{
 
 <div id="graph">
 <div id="cy"></div>
+<canvas id="cometCanvas" aria-hidden="true"></canvas>
 <div id="stepHighlight" aria-hidden="true"></div>
 <aside id="movePanel" aria-labelledby="moveTitle" hidden></aside>
 </div>
@@ -3507,23 +3518,7 @@ function cyStyle(){
             "font-weight":"normal"
         }},
         { selector:".filtered", style:{ "display":"none" }},
-        { selector:"edge.filtered.highlight, node.filtered.in-use", style:{ "display":"element" }},
-        // The comet: white on the light theme, where its fading dots blend
-        // into the pale background. On the dark theme see-through dots show
-        // as rings, so the tail is solid orange (it merges into the line),
-        // the head white, and only the head glows.
-        { selector:"node.pulse", style:{
-            "shape":"ellipse",
-            "width":"data(size)", "height":"data(size)",
-            "background-color":"data(color)",
-            "underlay-color":isDark() ? COLOR.accent : "white",     // soft glow
-            "underlay-padding":4,
-            "underlay-opacity":"data(glow)",
-            "underlay-shape":"ellipse",
-            "opacity":0,
-            "events":"no",
-            "z-index":1000
-        }}
+        { selector:"edge.filtered.highlight, node.filtered.in-use", style:{ "display":"element" }}
     ];
 }
 
@@ -3795,11 +3790,11 @@ const PULSE = {
     ]
 };
 
-const pulseDots = cy.add(PULSE.tail.map((d,i)=>({
-    group:"nodes", data:{ id:`pulse${i}`, size:d.size, color:cometColor(i), glow:cometGlow(i) }, classes:"pulse", position:{x:0, y:0}
-}))).ungrabify().unselectify();
-
-// Tail dot i (0 = head): colour, glow and opacity (see the node.pulse style)
+// The comet: white on the light theme, where its fading dots blend into
+// the pale background. On the dark theme see-through dots show as rings,
+// so the tail is solid orange (it merges into the line), the head white,
+// and only the head glows.
+// Tail dot i (0 = head): colour, glow and opacity
 function cometColor(i){
     if(!isDark()) return "white";
     const t = Math.min(1, i / 2);           // white head, orange within two dots
@@ -3874,7 +3869,7 @@ function startPulse(steps, owner){
     Object.assign(pulse, { steps, owner, path:null, boxes:null, start:performance.now(), lap:-1 });
     setActiveStep(-1, true);
     if(!steps.length || REDUCED_MOTION.matches){
-        pulseDots.style("opacity", 0);
+        clearComet();
         lightNodes(null);
         return;
     }
@@ -3920,10 +3915,62 @@ function lightNodes(head){
     }));
 }
 
+const cometCtx = document.getElementById("cometCanvas").getContext("2d");
+let cometDrawn = false;
+
+function clearComet(){
+    if(!cometDrawn) return;
+    const c = cometCtx.canvas;
+    cometCtx.setTransform(1, 0, 0, 1, 0, 0);
+    cometCtx.clearRect(0, 0, c.width, c.height);
+    cometDrawn = false;
+}
+
+// The comet's dots at distance `head` along the path, in screen pixels
+// (graph position x zoom + pan). Dots draw above the graph, so to pass
+// *under* a label, any dot (with its glow) that touches one is skipped.
+function drawComet(head, total, boxes){
+    const c = cometCtx.canvas;
+    const w = dom.cy.clientWidth, h = dom.cy.clientHeight;
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    if(c.width !== Math.round(w*dpr) || c.height !== Math.round(h*dpr)){
+        c.width = Math.round(w*dpr);
+        c.height = Math.round(h*dpr);
+    }
+    const ctx = cometCtx;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, w, h);
+    const zoom = cy.zoom(), pan = cy.pan();
+    const glowColor = isDark() ? COLOR.accent : "white";
+    PULSE.tail.forEach((dot, i)=>{
+        const d = head - i*PULSE.spacing;
+        if(d < 0 || d > total) return;
+        const pos = pointAt(pulse.path, d);
+        const r = dot.size/2, pad = 4;
+        if(boxes.some(b=>pos.x + r + pad > b.x1 && pos.x - r - pad < b.x2 && pos.y + r + pad > b.y1 && pos.y - r - pad < b.y2)) return;
+        const x = pos.x*zoom + pan.x, y = pos.y*zoom + pan.y;
+        const alpha = cometAlpha(i), glow = cometGlow(i);
+        if(glow){
+            ctx.globalAlpha = alpha * glow;
+            ctx.fillStyle = glowColor;
+            ctx.beginPath();
+            ctx.arc(x, y, (r + pad)*zoom, 0, Math.PI*2);
+            ctx.fill();
+        }
+        ctx.globalAlpha = alpha;
+        ctx.fillStyle = cometColor(i);
+        ctx.beginPath();
+        ctx.arc(x, y, r*zoom, 0, Math.PI*2);
+        ctx.fill();
+    });
+    ctx.globalAlpha = 1;
+    cometDrawn = true;
+}
+
 function pulseTick(now){
     pulse.frame = null;
     if(!pulse.steps.length || REDUCED_MOTION.matches){
-        pulseDots.style("opacity", 0);
+        clearComet();
         setActiveStep(-1);
         lightNodes(null);
         return;
@@ -3948,19 +3995,7 @@ function pulseTick(now){
         lightNodes(head);
 
         // label boxes are in graph coordinates: measured once a lap, not every frame
-        const boxes = pulse.boxes ??= labelBoxes();
-        cy.batch(()=>pulseDots.forEach((dot,i)=>{
-            const d = head - i*PULSE.spacing;
-            if(d < 0 || d > total){ dot.style("opacity", 0); return; }
-            const pos = pointAt(pulse.path, d);
-            dot.position(pos);
-            // Dots always draw above labels; to pass *under* a label, hide
-            // any dot (including its glow) that touches one.
-            const r = PULSE.tail[i].size/2 + 4;
-            const covered = boxes.some(b=>
-                pos.x + r > b.x1 && pos.x - r < b.x2 && pos.y + r > b.y1 && pos.y - r < b.y2);
-            dot.style("opacity", covered ? 0 : cometAlpha(i));
-        }));
+        drawComet(head, total, pulse.boxes ??= labelBoxes());
     }
     pulse.frame = requestAnimationFrame(pulseTick);
 }
@@ -3989,6 +4024,7 @@ function setActiveStep(j, force=false){
 
 // Cytoscape can't style one line of a label, so an HTML strip is laid over
 // the line belonging to the current step, in the label's exact font.
+let stepHighlightKey = "";
 function updateStepHighlight(){
     const step = pulse.steps[pulse.active];
     const edge = step && !step.edge.removed() ? step.edge : null;
@@ -4004,6 +4040,10 @@ function updateStepHighlight(){
     const zoom = cy.zoom(), pan = cy.pan();
     const textTop = box.y1 + (box.h - lines.length*lh) / 2;
     const x = box.x1, w = box.w, text = lines[k];
+    // called every frame: only touch the page when something has changed
+    const key = [x, w, textTop, k, lh, zoom, pan.x, pan.y, text].join("|");
+    if(key === stepHighlightKey && dom.stepHighlight.style.display === "block") return;
+    stepHighlightKey = key;
     Object.assign(dom.stepHighlight.style, {
         display:"block",
         left:   `${x * zoom + pan.x}px`,
@@ -6224,7 +6264,6 @@ function applyTheme(){
     readColors();
     nodeIconCache.clear();
     cy.nodes(".state").forEach(n=>n.data("icon", nodeIcon(n.id())));
-    pulseDots.forEach((dot, i)=>dot.data({ color:cometColor(i), glow:cometGlow(i) }));
     cy.nodes(".state").forEach(n=>n.scratch("_light", -1));     // recolour the outlines
     cy.style().fromJson(cyStyle()).update();
     renderCaption();
