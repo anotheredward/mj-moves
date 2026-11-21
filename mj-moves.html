@@ -4958,6 +4958,13 @@ function setFeel(name, key, value){
     saveJSON(FEEL_KEY, myFeel);
 }
 
+const FEEL_WHY = [
+    "Helps us choose which move best matches a moment in a song.",
+    "High energy, distant moves for big moments.",
+    "Sharp bouncy moves to match a rhythm.",
+    "Smooth or close for delicate moments."
+];
+
 // Three pips per scale, each with its emoji; tap one to choose your own.
 function feelView(name){
     const box = el("div", {className:"feel"});
@@ -4978,8 +4985,9 @@ function feelView(name){
                 el("span", {className:"feel-key", textContent:label}), pips,
                 el("span", {className:"feel-value", textContent:feel[key]}));
         }));
+        box.append(el("p", {className:"mp-text feel-why"}, ...FEEL_WHY.flatMap((line, i)=>i ? [el("br"), line] : [line])));
         if(myFeel[name]){
-            const reset = el("button", {type:"button", className:"feel-reset", textContent:"Reset to usual"});
+            const reset = el("button", {type:"button", className:"feel-reset", textContent:"Reset Feel"});
             reset.addEventListener("click", ()=>{ delete myFeel[name]; saveJSON(FEEL_KEY, myFeel); paint(); });
             box.append(reset);
         }
@@ -5011,22 +5019,9 @@ function showMoveDetails(name){
             close),
         el("div", {className:"mp-holds"}, hold(move.from, "Starts"), el("span", {className:"arrow", textContent:"→"}), hold(move.to, "Finishes")),
         el("h3", {className:"mp-section", textContent:"Feel"}),
-        el("p", {className:"mp-text feel-why", textContent:"Helps us choose which move best matches a moment in a song. " +
-            "High energy, distant moves for big moments. Sharp bouncy moves to match a rhythm. Smooth or close for delicate moments."}),
         feelView(name),
         notesEditor(name)
     ];
-
-    const variations = MOVE_VARIATIONS.filter(v=>v.move === name).map(v=>v.end
-        ? `Can finish in ${POSITION_NAMES[v.end]} (${v.note}), so the next move can start there`
-        : `Can start from ${POSITION_NAMES[v.start]} (${v.note})`);
-    if(variations.length){
-        parts.push(el("h3", {textContent:"Variations"}),
-            ...variations.map(t=>el("p", {className:"mp-text", textContent:t})));
-    }
-
-    parts.push(el("h3", {textContent:"Flows on into (no hand change)"}), chipList(pool.filter(m=>m !== name && canFollow(name, m))));
-    parts.push(el("h3", {textContent:"Can come after (no hand change)"}), chipList(pool.filter(m=>m !== name && canFollow(m, name))));
 
     const inClass = COMBINATIONS.filter(c=>c.moves.includes(name));
     parts.push(el("h3", {textContent:"In class combinations"}));
@@ -5045,6 +5040,18 @@ function showMoveDetails(name){
         parts.push(el("p", {className:"mp-text", style:"margin-top:6px",
             textContent:`Move ${superAt + 1} of ${SUPER_COMBO.moves.length} in the Beginner's Super Combo`}));
     }
+
+
+    const variations = MOVE_VARIATIONS.filter(v=>v.move === name).map(v=>v.end
+        ? `Can finish in ${POSITION_NAMES[v.end]} (${v.note}), so the next move can start there`
+        : `Can start from ${POSITION_NAMES[v.start]} (${v.note})`);
+    if(variations.length){
+        parts.push(el("h3", {textContent:"Variations"}),
+            ...variations.map(t=>el("p", {className:"mp-text", textContent:t})));
+    }
+
+    parts.push(el("h3", {textContent:"Flows on into (no hand change)"}), chipList(pool.filter(m=>m !== name && canFollow(name, m))));
+    parts.push(el("h3", {textContent:"Can come after (no hand change)"}), chipList(pool.filter(m=>m !== name && canFollow(m, name))));
 
     const card = cardOf(name);
     parts.push(el("h3", {textContent:"Flashcards"}), el("p", {className:"mp-text", textContent: card.box
