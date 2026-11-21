@@ -1309,7 +1309,7 @@ Show intromediate moves
 // Data
 // =====================================================================
 
-// Every move: where the hands start and finish, and its level. The 22
+// Every move: where the hands start and finish, and its level. The 21
 // beginner moves are the beginners block; the rest are intromediate.
 // (Objects, so more details - descriptions, counts - can be added later.)
 const MOVES = [
@@ -1338,7 +1338,7 @@ const MOVES = [
 { name:"Shoulder Wrap",     from:"rr", to:"lr", level:"intromediate" },
 { name:"Comb",              from:"rr", to:"rr", level:"intromediate" },
 { name:"Slide Break",       from:"bh", to:"rr", level:"intromediate" },
-{ name:"First Move",        from:"lr", to:"lr", level:"beginner" },
+{ name:"First Move",        from:"lr", to:"lr", level:"intromediate" },
 { name:"Wrap & Throw",      from:"rl", to:"lr", level:"intromediate" },
 { name:"Short Manhattan",   from:"lr", to:"lr", level:"intromediate" }
 ];
@@ -1379,6 +1379,8 @@ const HAND_SWAPS = [
 ["bh", "rr", "drop both, take R"]
 ];
 
+// "styles": how a move is danced in that combination (shown as a tag on
+// the move; the hand positions don't change), keyed by move name.
 const COMBINATIONS = [
 { id:1,  moves:["Basket","Manhattan","Step Across"] },
 { id:2,  moves:["Short First Move","Break Through","Hook Turn"] },
@@ -1388,6 +1390,7 @@ const COMBINATIONS = [
 { id:6,  moves:["Step Across","Wurlitzer","Short First Move"] },
 { id:7,  moves:["Basket","Loop Throughs","Hatchback"] },
 { id:8,  moves:["Squeezebox","Figure Of 8","Catapult"] },
+{ id:9,  moves:["Manhattan","New Yorker","Outside Turn"], styles:{ "Manhattan":"travelling return" } },
 { id:10, moves:["Shoulder Block","Accordion","Yoyo"] },
 { id:11, moves:["Short First Move","Loop Throughs","New Yorker"] },
 { id:12, moves:["Catapult","Break Through","Block & Turn"] },
@@ -1402,7 +1405,7 @@ const SUPER_COMBO = {
     caption:"Super",
     moves:["Accordion","Yoyo","Back Pass","Figure Of 8","Catapult","Break Through",
            "Block & Turn","Shoulder Block","New Yorker","Hatchback","Outside Turn",
-           "First Move","Left Side Change","Key Turn","Manhattan","Step Across",
+           "Left Side Change","Key Turn","Manhattan","Step Across",
            "Wurlitzer","Short First Move","Loop Throughs","Basket","Squeezebox","Hook Turn"]
 };
 
@@ -1439,9 +1442,11 @@ const sameMoves = (a, b) => a.length === b.length && a.every((m,i)=>m === b[i]);
 // How a sequence of moves is danced: where each move really ends (it may
 // use an alternative ending so the next move can follow), and the hand
 // changes needed in between. Returns, in order:
-//   {kind:"move", index, name, from, to, variant}   variant: e.g. "keep both"
+//   {kind:"move", index, name, from, to, variant, ending}
+//       variant: tag text, e.g. "keep both" or a style ("travelling return")
+//       ending:  true if the move finishes differently (an alternative ending)
 //   {kind:"transition", index, from, to, note}      after move `index`
-function planMoves(moves, {loops=false}={}){
+function planMoves(moves, {loops=false, styles={}}={}){
     const plan = [];
     moves.forEach((name,i)=>{
         const st = MOVE_STATES.get(name);
@@ -1453,8 +1458,9 @@ function planMoves(moves, {loops=false}={}){
         const targetName = next ? moves[i+1] : wrapTo ? moves[0] : null;
         const br = targetName ? bridge(name, targetName) : { kind:"link" };
         const to = br.kind === "ending" ? br.to : st.to;
-        const variant = br.kind === "ending" ? br.note : null;
-        plan.push({ kind:"move", index:i, name, from:st.from, to, variant });
+        const ending = br.kind === "ending";
+        const variant = [styles[name], ending ? br.note : null].filter(Boolean).join(" · ") || null;
+        plan.push({ kind:"move", index:i, name, from:st.from, to, variant, ending });
         if(next && br.kind === "change"){
             plan.push({ kind:"transition", index:i, from:to, to:next.from, note:br.note });
         }
@@ -1477,6 +1483,9 @@ function planMoves(moves, {loops=false}={}){
         console.warn("Beginner's Super Combo doesn't cover every beginner move exactly once");
     }
     for(const combo of [...COMBINATIONS, SUPER_COMBO]){
+        for(const name of Object.keys(combo.styles || {})){
+            if(!combo.moves.includes(name)) console.warn(`Combination ${combo.id}: style for "${name}", which isn't in it`);
+        }
         combo.moves.forEach((name,i)=>{
             if(!MOVE_STATES.has(name)){
                 console.warn(`Combination ${combo.id}: unknown move "${name}"`);
@@ -2393,6 +2402,18 @@ const stats = (()=>{
     try{ return JSON.parse(localStorage.getItem(STATS_KEY)) || {}; }
     catch{ return {}; }
 })();
+// First Move became intromediate (Nov 2026) and left the Super Combo:
+// carry its ticks/star over from the old move list.
+{
+    const old = [...SUPER_COMBO.moves];
+    old.splice(old.indexOf("Outside Turn")+1, 0, "First Move");
+    const oldKey = comboKey({moves:old}), newKey = comboKey(SUPER_COMBO);
+    if(stats[oldKey] && !stats[newKey]){
+        stats[newKey] = stats[oldKey];
+        delete stats[oldKey];
+        try{ localStorage.setItem(STATS_KEY, JSON.stringify(stats)); }catch{}
+    }
+}
 const statOf = combo => ({ fav:false, done:0, ...stats[comboKey(combo)] });
 // combo key -> every {star, tick} pair showing it (a combination can be in
 // the class list and the Favourites list at once)
@@ -2590,7 +2611,7 @@ function buildMenu(){
         const btn = comboLink(combo,
             el("span", {className:"combo-num", textContent:`${combo.id}`}),
             el("span", {className:"combo-moves"}, ...sequenceNodes(combo)));
-        btn.setAttribute("aria-label", `Combination ${combo.id}: ${combo.moves.join(", ")}`);
+        btn.setAttribute("aria-label", `Combination ${combo.id}: ${combo.moves.map(m=>combo.styles?.[m] ? `${m} (${combo.styles[m]})` : m).join(", ")}`);
         dom.comboList.append(el("div", {className:"combo-row"}, btn, statControls(combo)));
     }
 }
@@ -2674,6 +2695,15 @@ function headlineCard(){
     return section;
 }
 
+// "3 moves — 2 of them intromediate — haven't been in a class combination yet."
+function unusedText(unused){
+    if(!unused.length) return "Every move has been in a class combination.";
+    const intro = unused.filter(m=>m.level === "intromediate").length;
+    const which = intro === unused.length ? (unused.length > 1 ? ", all intromediate," : ", intromediate,")
+        : intro ? ` — ${intro} of them intromediate —` : "";
+    return `${plural(unused.length, "move")}${which} ${unused.length > 1 ? "haven't" : "hasn't"} been in a class combination yet.`;
+}
+
 function moveUsageCard(){
     const uses = new Map(MOVES.map(m=>[m.name, {count:0, first:0, last:0, combos:[]}]));
     for(const c of COMBINATIONS){
@@ -2709,8 +2739,7 @@ function moveUsageCard(){
         legend([[LEVEL_COLOR.beginner, "Beginner"], [LEVEL_COLOR.intromediate, "Intromediate"]]),
         grid,
         note(bold(listText(top)), ` ${top.length > 1 ? "are" : "is"} the most used, in ${plural(max, "combination")}. `,
-             `${plural(unused.length, "move")} — ${unused.filter(m=>m.level === "intromediate").length} of them intromediate — ` +
-             "haven't been in a class combination yet."));
+             unusedText(unused)));
 }
 
 function positionsCard(){
@@ -2762,11 +2791,11 @@ function flowCard(){
         });
         // the hand positions the combination passes through
         const shape = el("div", {className:"shape"});
-        const plan = planMoves(c.moves);
+        const plan = planMoves(c.moves, c);
         shape.append(posIcon(plan[0].from, 30));
         for(const step of plan){
             const isMove = step.kind === "move";
-            const kind = isMove ? (step.variant ? "ending" : "") : "change";
+            const kind = isMove ? (step.ending ? "ending" : "") : "change";
             shape.append(tip(el("span", {className:`hop ${kind}`}),
                     isMove ? step.name : step.note,
                     isMove ? (step.variant ? `move, ${step.variant}` : "move") : "hand change"),
@@ -3165,7 +3194,7 @@ dom.shuffleBtn.addEventListener("click", ()=>{
         : shuffleOrder(combo.moves, combo.loops);
     if(!result){ showToast("There's no other order for these moves"); return; }
     state.preview = null;
-    const shuffledCombo = { id:null, caption:"Shuffled", moves:result.moves, loops:combo.loops };
+    const shuffledCombo = { id:null, caption:"Shuffled", moves:result.moves, loops:combo.loops, styles:combo.styles };
     selectCombo(shuffledCombo);
     const n = handChanges(shuffledCombo);
     showToast(n ? `Shuffled: ${plural(n, "hand change")} needed` : "Shuffled: no hand changes needed");
@@ -3183,7 +3212,7 @@ dom.replaceBtn.addEventListener("click", ()=>{
     const result = combo && replaceHandChange(combo);
     if(!result) return;
     state.preview = null;
-    selectCombo({ id:null, caption:"Custom", moves:result.moves, loops:combo.loops });
+    selectCombo({ id:null, caption:"Custom", moves:result.moves, loops:combo.loops, styles:combo.styles });
     showToast(`Replaced "${result.replaced}" with ${result.with}`);
     closeMenu();
 });
