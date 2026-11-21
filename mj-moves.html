@@ -737,6 +737,10 @@ function offsetLoopLabels(){
 function updateLabels(){
     cy.edges().toggleClass("compact", isCompact());
     offsetLoopLabels();
+    // Cytoscape caches each label's box and doesn't always notice when the
+    // text changes, so new (bold) text gets drawn into the old, narrower box
+    // and clipped. Drop the cached boxes so they're measured again.
+    cy.edges().dirtyBoundingBoxCache();
 }
 
 // The view is fitted once per layout with every full list showing; that
