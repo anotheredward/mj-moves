@@ -1309,7 +1309,7 @@ Show intromediate moves
 // Data
 // =====================================================================
 
-// Every move: where the hands start and finish, and its level. The 21
+// Every move: where the hands start and finish, and its level. The 22
 // beginner moves are the beginners block; the rest are intromediate.
 // (Objects, so more details - descriptions, counts - can be added later.)
 const MOVES = [
@@ -1330,11 +1330,12 @@ const MOVES = [
 { name:"Hatchback",         from:"lr", to:"lr", level:"beginner" },
 { name:"Step Across",       from:"lr", to:"lr", level:"beginner" },
 { name:"Hook Turn",         from:"rr", to:"lr", level:"beginner" },
-{ name:"Travelling Return", from:"lr", to:"lr", level:"intromediate" },
+{ name:"Travelling Return", from:"lr", to:"lr", level:"beginner" },
 { name:"Key Turn",          from:"rr", to:"lr", level:"beginner" },
 { name:"Wurlitzer",         from:"lr", to:"lr", level:"beginner" },
 { name:"Left Side Change",  from:"lr", to:"rr", level:"beginner" },
 { name:"Yoyo",              from:"rr", to:"rr", level:"beginner" },
+{ name:"Aerial Yoyo",       from:"rr", to:"rr", level:"intromediate" },
 { name:"Shoulder Wrap",     from:"rr", to:"lr", level:"intromediate" },
 { name:"Comb",              from:"rr", to:"rr", level:"intromediate" },
 { name:"Slide Break",       from:"bh", to:"rr", level:"intromediate" },
@@ -1405,7 +1406,7 @@ const SUPER_COMBO = {
     caption:"Super",
     moves:["Accordion","Yoyo","Back Pass","Figure Of 8","Catapult","Break Through",
            "Block & Turn","Shoulder Block","New Yorker","Hatchback","Outside Turn",
-           "Left Side Change","Key Turn","Manhattan","Step Across",
+           "Travelling Return","Left Side Change","Key Turn","Manhattan","Step Across",
            "Wurlitzer","Short First Move","Loop Throughs","Basket","Squeezebox","Hook Turn"]
 };
 
@@ -2402,16 +2403,20 @@ const stats = (()=>{
     try{ return JSON.parse(localStorage.getItem(STATS_KEY)) || {}; }
     catch{ return {}; }
 })();
-// First Move became intromediate (Nov 2026) and left the Super Combo:
-// carry its ticks/star over from the old move list.
+// Nov 2026: First Move became intromediate and Travelling Return beginner,
+// swapping places in the Super Combo. Carry ticks/stars over from the
+// earlier move lists (with First Move, and briefly with neither).
 {
-    const old = [...SUPER_COMBO.moves];
-    old.splice(old.indexOf("Outside Turn")+1, 0, "First Move");
-    const oldKey = comboKey({moves:old}), newKey = comboKey(SUPER_COMBO);
-    if(stats[oldKey] && !stats[newKey]){
-        stats[newKey] = stats[oldKey];
-        delete stats[oldKey];
-        try{ localStorage.setItem(STATS_KEY, JSON.stringify(stats)); }catch{}
+    const newKey = comboKey(SUPER_COMBO);
+    const withFirstMove = SUPER_COMBO.moves.map(m=>m === "Travelling Return" ? "First Move" : m);
+    const withNeither = SUPER_COMBO.moves.filter(m=>m !== "Travelling Return");
+    for(const old of [withFirstMove, withNeither]){
+        const oldKey = comboKey({moves:old});
+        if(stats[oldKey] && !stats[newKey]){
+            stats[newKey] = stats[oldKey];
+            delete stats[oldKey];
+            try{ localStorage.setItem(STATS_KEY, JSON.stringify(stats)); }catch{}
+        }
     }
 }
 const statOf = combo => ({ fav:false, done:0, ...stats[comboKey(combo)] });
