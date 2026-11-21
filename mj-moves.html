@@ -370,7 +370,7 @@ body.menu-open #backdrop{
     font-weight:bold;
 }
 
-/* "Done 4 times · Undo" message */
+/* "Practised in class 4 times · Undo" message */
 #toast{
     position:fixed;
     left:50%;
@@ -1610,7 +1610,7 @@ function setPreview(preview){
 }
 
 // ---------------------------------------------------------------------
-// Favourites and "times done in class", saved on this device. Keyed by the
+// Favourites and "times practised in class", saved on this device. Keyed by the
 // moves (not the number), so they survive the class list being renumbered.
 // ---------------------------------------------------------------------
 
@@ -1623,6 +1623,7 @@ const stats = (()=>{
 })();
 const statOf = combo => ({ fav:false, done:0, ...stats[comboKey(combo)] });
 const statButtons = new Map();   // combo -> {star, tick}
+const timesText = n => n === 1 ? "once" : `${n} times`;
 
 function setStat(combo, change){
     const key = comboKey(combo);
@@ -1645,7 +1646,8 @@ function refreshStats(combo){
     star.setAttribute("aria-label", `${comboName(combo)}: ${fav ? "remove from" : "add to"} favourites`);
     tick.querySelector(".count").textContent = done || "";
     tick.classList.toggle("on", done > 0);
-    tick.setAttribute("aria-label", `${comboName(combo)}: done in class ${done} time${done === 1 ? "" : "s"}. Add one`);
+    tick.setAttribute("aria-label", `${comboName(combo)}: practised in class ${timesText(done)}. Add one`);
+    tick.title = "Practised in class";
 }
 
 function statControls(combo){
@@ -1656,7 +1658,7 @@ function statControls(combo){
     tick.addEventListener("click", ()=>{
         const before = statOf(combo).done;
         setStat(combo, {done:before + 1});
-        showToast(`${comboName(combo)}: done ${before + 1} time${before + 1 === 1 ? "" : "s"}`,
+        showToast(`${comboName(combo)}: practised in class ${timesText(before + 1)}`,
                   ()=>setStat(combo, {done:before}));
     });
     statButtons.set(combo, {star, tick});
