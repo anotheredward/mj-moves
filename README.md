@@ -59,6 +59,21 @@ top). The filled squares show which hands are joined:
   - a link to the Fevah videos
 - Intromediate moves can be hidden.
 
+### New Moves
+- Add your own **intermediate moves** and **variations** of moves you know,
+  with the hand holds they start and finish in.
+- They're listed in a table, or grouped by **status** (from *Haven't
+  learned it yet* to *Feels natural*) or **priority**.
+- Each move has its own page:
+  - a main video, plus more examples. Videos can come from your camera
+    roll or a link, and YouTube, Instagram, Vimeo and TikTok links play on
+    the page.
+  - the steps, written by counts (1-4, 5-8...)
+  - its feel and your notes
+- New moves join the graph, Random Combo, Build a Combo, the Move Caller
+  and the flashcards. **Only show new moves** in the menu filters to just
+  them.
+
 ### Practice
 - **Move Caller:** for practising to a song. After a countdown it reads out
   a random combination, then waits as long as dancing it takes (16 counts a
@@ -85,8 +100,8 @@ top). The filled squares show which hands are joined:
 
 ## Your data
 
-There's no account and no server. Everything you add (notes, favourites,
-feel, flashcards, the Practice Log and its videos) is saved only in your
+There's no account and no server. Everything you add (new moves, notes,
+favourites, feel, flashcards, the Practice Log and videos) is saved only in your
 browser on that device. Use **Backup & restore** in the menu to keep a copy
 or move it to another device. Clearing your browser's site data deletes it.
 

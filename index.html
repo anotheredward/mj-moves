@@ -584,7 +584,8 @@ body.menu-open #backdrop{
 .overlay-page{
     --s-blue:#2a78d6;           /* series 1 (beginner, moves that link) */
     --s-orange:#eb6834;         /* series 2 (intromediate, hand changes) */
-    --s-aqua:#1baf7a;           /* series 3 (alternative endings) */
+    --s-aqua:#1baf7a;           /* series 3 (alternative endings, variations) */
+    --s-purple:#8a5cd1;         /* series 4 (your intermediate moves) */
     --s-track:var(--chip);
     position:fixed;
     inset:0;
@@ -1707,6 +1708,487 @@ button.cal-day{
     cursor:pointer;
 }
 
+/* ---------- New Moves ---------- */
+.mp-level.intermediate{ background:#efe8fa; color:#5d3a9b; }
+.mp-level.variation{ background:#e3f5ee; color:#11694a; }
+
+.nm-only{
+    min-height:40px;
+    margin-top:12px;
+    padding:0 14px;
+}
+
+.nm-controls{
+    display:flex;
+    flex-wrap:wrap;
+    gap:10px 16px;
+    margin:16px 0 12px;
+}
+
+.nm-table{
+    border:1px solid var(--rule);
+    border-radius:12px;
+    overflow:hidden;
+    background:var(--surface);
+}
+
+.nm-row{
+    display:grid;
+    grid-template-columns:minmax(0, 1fr) auto auto;
+    grid-template-areas:"name name video" "status priority holds";
+    align-items:center;
+    gap:8px 10px;
+    width:100%;
+    padding:12px 14px;
+    border:none;
+    border-top:1px solid var(--rule);
+    background:none;
+    color:var(--ink);
+    font:inherit;
+    text-align:left;
+    cursor:pointer;
+}
+
+.nm-table > .nm-row:first-child{ border-top:none; }
+.nm-row:hover{ background:var(--hover); }
+.nm-row > :nth-child(1){ grid-area:name; }
+.nm-row > :nth-child(2){ grid-area:status; justify-self:start; }
+.nm-row > :nth-child(3){ grid-area:priority; }
+.nm-row > :nth-child(4){ grid-area:holds; }
+.nm-row > :nth-child(5){ grid-area:video; }
+
+.nm-head{
+    display:none;
+    cursor:default;
+    font-size:12px;
+    font-weight:600;
+    letter-spacing:0.04em;
+    text-transform:uppercase;
+    color:var(--ink-faded);
+}
+
+.nm-head:hover{ background:none; }
+
+@media (min-width:600px){
+    .nm-row{
+        grid-template-columns:minmax(0, 1fr) 11.5em 7em 78px 24px;
+        grid-template-areas:"name status priority holds video";
+    }
+    .nm-head{ display:grid; }
+}
+
+.nm-name{
+    display:flex;
+    flex-direction:column;
+    min-width:0;
+}
+
+.nm-name b{
+    overflow:hidden;
+    text-overflow:ellipsis;
+}
+
+.nm-name small{
+    font-size:13px;
+    color:var(--ink-soft);
+}
+
+.nm-status{
+    padding:2px 9px;
+    border-radius:999px;
+    font-size:13px;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    max-width:100%;
+    background:var(--chip);
+    color:var(--ink);
+}
+
+.nm-status.s-once{ background:#fff3e0; }
+.nm-status.s-partner{ background:#fdf3c8; }
+.nm-status.s-social{ background:#e8f0fc; }
+.nm-status.s-mostly{ background:#e2f4f6; }
+.nm-status.s-natural{ background:#e3f5e8; }
+
+.nm-priority{
+    font-size:13px;
+    font-weight:600;
+    white-space:nowrap;
+}
+
+.nm-priority.p-high{ color:#c0392b; }
+.nm-priority.p-medium{ color:var(--accent-text); }
+.nm-priority.p-low{ color:var(--ink-soft); font-weight:400; }
+.nm-priority.p-none{ color:var(--ink-faded); font-weight:400; }
+
+.nm-holds{
+    display:flex;
+    align-items:center;
+    gap:3px;
+    color:var(--arrow);
+}
+
+.nm-has-video{
+    text-align:center;
+}
+
+.nm-group{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    margin:22px 0 8px;
+    font-size:16px;
+}
+
+.nm-group.empty{
+    margin:12px 0 0;
+    font-size:14px;
+    font-weight:400;
+    color:var(--ink-faded);
+}
+
+.nm-group .count-badge{
+    margin-left:0;
+}
+
+.nm-title{
+    margin:8px 0 6px;
+    font-size:26px;
+    line-height:1.2;
+}
+
+.nm-props{
+    margin:16px 0;
+    border-top:1px solid var(--rule);
+}
+
+.nm-prop{
+    display:flex;
+    align-items:center;
+    gap:12px;
+    min-height:48px;
+    border-bottom:1px solid var(--rule);
+}
+
+.nm-prop-key{
+    flex:0 0 76px;
+    font-size:14px;
+    color:var(--ink-soft);
+}
+
+.nm-prop-value{
+    display:flex;
+    flex-wrap:wrap;
+    align-items:center;
+    gap:6px 10px;
+    min-width:0;
+    font-size:14px;
+}
+
+.nm-prop-value .arrow{ color:var(--arrow); }
+
+.nm-hold{
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+}
+
+.nm-page select,
+.nm-edit select,
+.nm-edit input[type=text]{
+    min-height:40px;
+    max-width:100%;
+    padding:0 10px;
+    border:1px solid var(--control-border);
+    border-radius:8px;
+    background:var(--surface);
+    color:var(--ink);
+    font:inherit;
+    font-size:16px;
+}
+
+.nm-edit #nmName{
+    width:100%;
+    box-sizing:border-box;
+}
+
+.nm-video{
+    margin:12px 0;
+}
+
+.nm-video video{
+    display:block;
+    width:100%;
+    max-height:70vh;
+    border-radius:10px;
+    background:black;
+}
+
+.nm-frame{
+    position:relative;
+    aspect-ratio:16 / 9;
+    border-radius:10px;
+    overflow:hidden;
+    background:black;
+}
+
+.nm-video.tall .nm-frame{
+    aspect-ratio:9 / 16;
+    max-width:min(100%, 380px);
+    max-height:80vh;
+    margin:0 auto;
+}
+
+.nm-frame iframe{
+    position:absolute;
+    inset:0;
+    width:100%;
+    height:100%;
+    border:0;
+}
+
+.nm-open{
+    display:inline-block;
+    margin-top:6px;
+    font-size:14px;
+    color:var(--accent-text);
+}
+
+.nm-empty{
+    margin:12px 0;
+    padding:28px 16px;
+    border:2px dashed var(--rule);
+    border-radius:10px;
+    font-size:14px;
+    text-align:center;
+    color:var(--ink-faded);
+}
+
+.nm-missing{
+    padding:16px;
+    border-radius:10px;
+    background:var(--chip);
+}
+
+.nm-steps{
+    margin:0;
+    padding-left:20px;
+    line-height:1.5;
+}
+
+.nm-steps > li{
+    margin-bottom:8px;
+}
+
+.nm-steps ul{
+    margin:4px 0 0;
+    padding-left:20px;
+    color:var(--ink-soft);
+}
+
+.nm-counts{
+    display:inline-block;
+    min-width:2.6em;
+    margin-right:8px;
+    padding:0 6px;
+    border-radius:6px;
+    background:var(--accent-soft);
+    color:var(--accent-text);
+    font-variant-numeric:tabular-nums;
+    text-align:center;
+}
+
+.flashcard .nm-steps{
+    text-align:left;
+}
+
+.nm-actions{
+    display:flex;
+    flex-wrap:wrap;
+    gap:10px;
+    margin-top:24px;
+}
+
+.nm-actions button{
+    min-height:44px;
+    padding:0 16px;
+}
+
+.nm-help{
+    margin:-2px 0 8px;
+    color:var(--ink-faded);
+}
+
+.nm-holdpick{
+    display:grid;
+    grid-template-columns:repeat(4, 1fr);
+    gap:6px;
+}
+
+.nm-holdpick button{
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:4px;
+    padding:8px 4px;
+    border:1px solid var(--control-border);
+    border-radius:10px;
+    background:var(--surface);
+    color:var(--ink-soft);
+    font:inherit;
+    font-size:13px;
+    cursor:pointer;
+}
+
+.nm-holdpick button[aria-checked="true"]{
+    border:2px solid var(--accent);
+    padding:7px 3px;
+    background:var(--accent-soft);
+    color:var(--ink);
+    font-weight:600;
+}
+
+.nm-step-row{
+    display:flex;
+    align-items:flex-start;
+    gap:6px;
+    margin-bottom:8px;
+}
+
+.nm-step-row input{
+    flex:0 0 58px;
+    width:58px;
+    min-height:40px;
+    padding:0 6px;
+    border:1px solid var(--control-border);
+    border-radius:8px;
+    background:var(--surface);
+    color:var(--ink);
+    font:inherit;
+    font-size:16px;
+    text-align:center;
+    box-sizing:border-box;
+}
+
+.nm-step-row textarea{
+    flex:1;
+    min-width:0;
+    min-height:64px;
+    padding:8px 10px;
+    border:1px solid var(--control-border);
+    border-radius:8px;
+    background:var(--surface);
+    color:var(--ink);
+    font:inherit;
+    font-size:16px;
+    resize:vertical;
+    box-sizing:border-box;
+}
+
+.nm-steps-edit > button,
+.nm-vadd button,
+.log-link button{
+    min-height:44px;
+    padding:0 14px;
+}
+
+.nm-x{
+    flex:0 0 auto;
+    width:36px;
+    height:36px;
+    border:none;
+    border-radius:8px;
+    background:none;
+    color:var(--ink-soft);
+    font-size:16px;
+    cursor:pointer;
+}
+
+.nm-x:hover{ background:var(--hover); }
+
+.nm-vlist{
+    margin-bottom:10px;
+}
+
+.nm-vitem{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    padding:6px 0;
+    border-bottom:1px solid var(--rule);
+    font-size:14px;
+}
+
+.nm-vtag{
+    flex:0 0 auto;
+    padding:1px 8px;
+    border-radius:999px;
+    font-size:12px;
+    font-weight:600;
+    background:var(--chip);
+    color:var(--ink-soft);
+}
+
+.nm-vtag.main{
+    background:var(--accent-soft);
+    color:var(--accent-text);
+}
+
+.nm-vwhat{
+    flex:1;
+    min-width:0;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+}
+
+.nm-mini{
+    flex:0 0 auto;
+    min-height:32px;
+    padding:0 10px;
+    border:1px solid var(--control-border);
+    border-radius:8px;
+    background:var(--surface);
+    color:var(--ink);
+    font:inherit;
+    font-size:13px;
+    cursor:pointer;
+}
+
+.nm-error{
+    min-height:1.2em;
+    margin:16px 0 0;
+    font-weight:600;
+    color:#c0392b;
+}
+
+.nm-error:empty{ margin:0; }
+
+/* the move details panel: a new move's way to its page */
+.mp-status{
+    margin:10px 0 0;
+    text-align:center;
+}
+
+.mp-page{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    width:100%;
+    min-height:52px;
+    margin-top:10px;
+    padding:6px 16px;
+    text-align:left;
+}
+
+.mp-page small{
+    display:block;
+    font-size:13px;
+    font-weight:400;
+    opacity:0.8;
+}
+
 /* ---------- Practice: menu buttons ---------- */
 .practice-area{
     margin-top:14px;
@@ -2298,6 +2780,15 @@ body:has(.overlay-page:not([hidden])) .stats-open.fancy::after{
 /* ---------- Dark theme: pale badges and buttons get dark versions ---------- */
 :root[data-theme="dark"] .mp-level{ background:#1c2e48; color:#9ec5f4; }
 :root[data-theme="dark"] .mp-level.intromediate{ background:var(--accent-soft); color:var(--accent-text); }
+:root[data-theme="dark"] .mp-level.intermediate{ background:#2f2346; color:#c9b2f2; }
+:root[data-theme="dark"] .mp-level.variation{ background:#173a2e; color:#8fdcbc; }
+:root[data-theme="dark"] .nm-status.s-once{ background:#3a2a12; }
+:root[data-theme="dark"] .nm-status.s-partner{ background:#3a3412; }
+:root[data-theme="dark"] .nm-status.s-social{ background:#1c2e48; }
+:root[data-theme="dark"] .nm-status.s-mostly{ background:#163a3e; }
+:root[data-theme="dark"] .nm-status.s-natural{ background:#173322; }
+:root[data-theme="dark"] .nm-priority.p-high,
+:root[data-theme="dark"] .nm-error{ color:#f3a1a1; }
 :root[data-theme="dark"] .grade-again{ border-color:#7a2f2f; background:#3a1d1d; color:#f3a1a1; }
 :root[data-theme="dark"] .grade-perfect{ border-color:#2f6b45; background:#173322; color:#8fd9a8; }
 :root[data-theme="dark"] .meter span.rest{ background:#1c2e48; }
@@ -2763,6 +3254,16 @@ body:has(.overlay-page:not([hidden])) .stats-open.fancy::after{
     user-select:none;
 }
 
+.toggle[hidden]{
+    display:none;
+}
+
+#onlyNewToggle{
+    margin-top:0;
+    padding-top:0;
+    border-top:none;
+}
+
 .toggle input{
     position:absolute;
     opacity:0;
@@ -2898,6 +3399,14 @@ body:has(.overlay-page:not([hidden])) .stats-open.fancy::after{
 <div id="logBody" class="practice-body"></div>
 </div>
 
+<div id="newPage" class="overlay-page" role="dialog" aria-modal="true" aria-labelledby="newTitle" hidden>
+<header class="overlay-header">
+<h2 id="newTitle">New Moves</h2>
+<button type="button" id="newClose" class="overlay-close" aria-label="Close new moves">✕</button>
+</header>
+<div id="newBody" class="practice-body"></div>
+</div>
+
 <div id="backupPage" class="overlay-page" role="dialog" aria-modal="true" aria-labelledby="backupTitle" hidden>
 <header class="overlay-header">
 <h2 id="backupTitle">Backup &amp; restore</h2>
@@ -2986,6 +3495,10 @@ body:has(.overlay-page:not([hidden])) .stats-open.fancy::after{
 
 <div class="practice-area" id="practiceArea">
 <div class="practice-buttons">
+<button type="button" id="newBtn" class="secondary practice-btn">
+<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.8 4.7L18.5 9.5l-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8z"/><path d="M19 15v6M16 18h6"/></svg>
+<span><b>New Moves</b><small>Your intermediate moves and variations, with videos</small></span>
+</button>
 <button type="button" id="callerBtn" class="secondary practice-btn">
 <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9v6h4l5 4V5L8 9z"/><path d="M16 9a4 4 0 0 1 0 6"/><path d="M19 6a8 8 0 0 1 0 12"/></svg>
 <span><b>Move Caller</b><small>Calls out combinations to dance to</small></span>
@@ -3013,6 +3526,12 @@ Statistics
 <input type="checkbox" id="showIntro" checked>
 <span class="switch" aria-hidden="true"></span>
 Show intromediate moves
+</label>
+
+<label class="toggle" id="onlyNewToggle">
+<input type="checkbox" id="onlyNew">
+<span class="switch" aria-hidden="true"></span>
+Only show new moves
 </label>
 
 <div class="theme-setting">
@@ -3071,6 +3590,27 @@ const MOVES = [
 { name:"Wrap & Throw",      from:"rl", to:"lr", level:"intromediate", energy:"medium", distance:"close", smoothness:"smooth" },
 { name:"Short Manhattan",   from:"lr", to:"lr", level:"intromediate", energy:"medium", distance:"close", smoothness:"normal" }
 ];
+
+// Your own moves, added in New Moves: intermediate moves, and variations
+// of another move. Kept on this device; they're added to MOVES after the
+// class moves, so the graph, combos, caller and flashcards all use them.
+//   { id, name, kind:"intermediate"|"variation", of (the move it varies),
+//     from, to, energy, distance, smoothness, status, priority,
+//     steps:[{counts, text}], videos:[{id, kind:"file"|"link", url | name,size,type}],
+//     created }
+const NEW_MOVES_KEY = "mj-moves:new-moves";
+const CLASS_MOVE_COUNT = MOVES.length;
+let newMoves = (()=>{
+    try{
+        const v = JSON.parse(localStorage.getItem(NEW_MOVES_KEY));
+        return Array.isArray(v) ? v : [];
+    }catch{ return []; }
+})();
+const asMove = n => ({ name:n.name, from:n.from, to:n.to, level:n.kind, of:n.of || null, custom:true, id:n.id,
+                       energy:n.energy, distance:n.distance, smoothness:n.smoothness });
+// (a new move can't take a class move's name)
+const usableNewMoves = ()=>newMoves.filter(n=>n?.name && !MOVES.slice(0, CLASS_MOVE_COUNT).some(m=>m.name === n.name));
+MOVES.push(...usableNewMoves().map(asMove));
 
 // How to get from one move into the next when the first finishes in a
 // different hand position from where the next starts. Tried in this order:
@@ -3138,7 +3678,8 @@ const SUPER_COMBO = {
 
 const STATES = ["rr","lr","rl","bh"];
 const MOVE_STATES = new Map(MOVES.map(m=>[m.name, m]));      // name -> {name, from, to, level}
-const LEVELS = ["beginner", "intromediate"];
+const LEVELS = ["beginner", "intromediate", "intermediate", "variation"];
+const LEVEL_NAMES = { beginner:"Beginner", intromediate:"Intromediate", intermediate:"Intermediate", variation:"Variation" };
 // Each scale, lowest to highest
 // (a subjective feel, for choosing moves to suit the music)
 const FEEL = {
@@ -3273,9 +3814,9 @@ const fitPadding = () => isCompact() ? 20 : 50;
 // =====================================================================
 
 const dom = Object.fromEntries(
-    ["container","graph","cy","caption","comboTitle","stepHighlight","menu","menuBtn","closeBtn","classSection","showIntro","superSlot","toast","randomSection","lengthGroup","loopCombo","generateBtn","favBtn","shareBtn","favList","favCount","movePanel","themeGroup","shuffleBtn","replaceBtn","avoidChanges",
+    ["container","graph","cy","caption","comboTitle","stepHighlight","menu","menuBtn","closeBtn","classSection","showIntro","onlyNew","onlyNewToggle","superSlot","toast","randomSection","lengthGroup","loopCombo","generateBtn","favBtn","shareBtn","favList","favCount","movePanel","themeGroup","shuffleBtn","replaceBtn","avoidChanges",
      "backdrop","comboList","buildSection","buildSeq","buildUndo","buildClear","buildFromCurrent","buildMoves",
-     "logBtn","logPage","logBody","logClose","backupBtn","backupPage","backupBody","backupClose","secretBtn","secretPage","secretText","secretClose","secretFoot","callerBtn","callerPage","callerBody","callerClose","flashBtn","flashPage","flashBody","flashClose","statsFx","statsBtn","statsPage","statsBody","statsClose","statsTip","prevBtn","nextBtn"].map(id=>[id, document.getElementById(id)])
+     "logBtn","logPage","logBody","logClose","newBtn","newPage","newBody","newClose","backupBtn","backupPage","backupBody","backupClose","secretBtn","secretPage","secretText","secretClose","secretFoot","callerBtn","callerPage","callerBody","callerClose","flashBtn","flashPage","flashBody","flashClose","statsFx","statsBtn","statsPage","statsBody","statsClose","statsTip","prevBtn","nextBtn"].map(id=>[id, document.getElementById(id)])
 );
 
 // selection: the combination the user picked ({kind:"combo", combo} | null)
@@ -3619,11 +4160,15 @@ function applyLayout(){
 // Show or hide the intromediate moves: each line keeps only the moves
 // shown; a line with none left is hidden, and so is a hand position with
 // no lines left (unless the highlighted combination uses them).
+// Is a move shown? (the menu's "Show intromediate moves" and "Only new
+// moves" switches; the random combos, caller and builder follow them too)
+function moveShown(m){
+    return (!dom.onlyNew.checked || !!m.custom) && (dom.showIntro.checked || m.level !== "intromediate");
+}
+
 function applyLevelFilter(){
-    const showIntro = dom.showIntro.checked;
     cy.edges().not(".transition").forEach(edge=>{
-        const moves = edge.data("allMoves")
-            .filter(name=>showIntro || MOVE_STATES.get(name).level !== "intromediate");
+        const moves = edge.data("allMoves").filter(name=>moveShown(MOVE_STATES.get(name)));
         const label = moves.join("\n");
         edge.data({ moves, count:Math.max(moves.length, 1), fullLabel:label, edgeLabel:label });
         edge.toggleClass("filtered", moves.length === 0);
@@ -4462,7 +5007,7 @@ function buildMenu(){
 // =====================================================================
 
 const POSITION_NAMES = { lr:"L to R", rr:"R to R", rl:"R to L", bh:"Both hands" };
-const LEVEL_COLOR = { beginner:"var(--s-blue)", intromediate:"var(--s-orange)" };
+const LEVEL_COLOR = { beginner:"var(--s-blue)", intromediate:"var(--s-orange)", intermediate:"var(--s-purple)", variation:"var(--s-aqua)" };
 const fmt = n => n.toLocaleString("en-NZ");
 const listText = items => items.length < 2 ? items.join("")
     : `${items.slice(0,-1).join(", ")} and ${items.at(-1)}`;
@@ -4523,7 +5068,8 @@ function headlineCard(){
     const moveSlots = COMBINATIONS.reduce((n,c)=>n + c.moves.length, 0);
     const section = card("At a glance", null, el("div", {className:"stat-tiles"},
         tile("Moves", [fmt(MOVES.length)],
-             `${beginner.length} beginner · ${MOVES.length - beginner.length} intromediate`),
+             [`${beginner.length} beginner`, `${MOVES.filter(m=>m.level === "intromediate").length} intromediate`,
+              ...(MOVES.some(m=>m.custom) ? [`${MOVES.filter(m=>m.custom).length} new`] : [])].join(" · ")),
         tile("Class combinations", [fmt(COMBINATIONS.length)],
              `${moveSlots} moves in all, plus the ${SUPER_COMBO.moves.length}-move Super Combo`),
         tile("Beginner moves in class combinations", [fmt(taught.length), el("small", {textContent:` of ${beginner.length}`})],
@@ -4545,7 +5091,8 @@ function unusedText(unused){
 }
 
 function moveUsageCard(){
-    const uses = new Map(MOVES.map(m=>[m.name, {count:0, first:0, last:0, combos:[]}]));
+    const classMoves = MOVES.filter(m=>!m.custom);
+    const uses = new Map(classMoves.map(m=>[m.name, {count:0, first:0, last:0, combos:[]}]));
     for(const c of COMBINATIONS){
         c.moves.forEach((name, i)=>{
             const u = uses.get(name);
@@ -4556,7 +5103,7 @@ function moveUsageCard(){
         });
     }
     const max = Math.max(...[...uses.values()].map(u=>u.count));
-    const rows = MOVES.toSorted((a,b)=>uses.get(b.name).count - uses.get(a.name).count
+    const rows = classMoves.toSorted((a,b)=>uses.get(b.name).count - uses.get(a.name).count
                                      || LEVELS.indexOf(a.level) - LEVELS.indexOf(b.level)
                                      || a.name.localeCompare(b.name));
     const grid = el("div", {className:"hbars"});
@@ -5141,9 +5688,7 @@ const canFollow = (a, b) => bridgeCost(a, b) === 0;
 const shuffled = items => items.map(v=>[Math.random(), v]).sort((x,y)=>x[0]-y[0]).map(([,v])=>v);
 
 function randomMoves(length, loops){
-    const pool = MOVES
-        .filter(m=>dom.showIntro.checked || m.level !== "intromediate")
-        .map(m=>m.name);
+    const pool = MOVES.filter(moveShown).map(m=>m.name);
     // depth-first in random order, so every choice is random but we never
     // pick a move that leaves no way to finish
     const extend = seq=>{
@@ -5298,9 +5843,7 @@ function shuffleOrder(moves, loops){
     return { moves:pick, cost:orderCost(pick, loops) };
 }
 
-const shownMoves = () => MOVES
-    .filter(m=>dom.showIntro.checked || m.level !== "intromediate")
-    .map(m=>m.name);
+const shownMoves = () => MOVES.filter(moveShown).map(m=>m.name);
 
 // Replace the first hand change that a real move can stand in for.
 function replaceHandChange(combo){
@@ -5363,17 +5906,23 @@ dom.replaceBtn.addEventListener("click", ()=>{
     closeMenu();
 });
 
-// Show/hide intromediate moves (remembered per device; shown by default).
+// Show/hide intromediate moves (remembered per device; shown by default),
+// and show only your new moves (off by default; offered once you have some).
 {
-    const key = "mj-moves:show-intromediate";
+    const key = "mj-moves:show-intromediate", newKey = "mj-moves:only-new";
     dom.showIntro.checked = localStorage.getItem(key) !== "false";
+    dom.onlyNew.checked = localStorage.getItem(newKey) === "true" && MOVES.some(m=>m.custom);
+    dom.onlyNewToggle.hidden = !MOVES.some(m=>m.custom);
     applyLevelFilter();
-    dom.showIntro.addEventListener("change", ()=>{
+    const changed = ()=>{
         localStorage.setItem(key, dom.showIntro.checked);
+        localStorage.setItem(newKey, dom.onlyNew.checked);
         updateShuffleControls();
         applyLevelFilter();
         applyLayout();          // labels changed size: re-fit the graph
-    });
+    };
+    dom.showIntro.addEventListener("change", changed);
+    dom.onlyNew.addEventListener("change", changed);
 }
 
 // Remember whether each foldable menu section was left open or folded.
@@ -5432,7 +5981,7 @@ const saveJSON = (key, value)=>{
     try{ localStorage.setItem(key, JSON.stringify(value)); }
     catch{ /* storage full or blocked: keep working for this visit */ }
 };
-const movePool = ()=>MOVES.filter(m=>dom.showIntro.checked || m.level !== "intromediate").map(m=>m.name);
+const movePool = ()=>MOVES.filter(moveShown).map(m=>m.name);
 
 function openPage(page, closeBtn){
     closeMenu();
@@ -5531,6 +6080,7 @@ dom.buildFromCurrent.addEventListener("click", ()=>{
     if(current) setBuilt([...current.moves]);
 });
 dom.showIntro.addEventListener("change", renderBuilder);
+dom.onlyNew.addEventListener("change", renderBuilder);
 
 // =====================================================================
 // Move Caller
@@ -5723,7 +6273,8 @@ function callerSetupView(){
                    return c; })()),
         el("p", {className:"summary-line",
             textContent:`A move gets ${s.counts} counts ≈ ${secs.toFixed(1)} s, so a 3-move combination lasts about ${Math.round(secs*3)} s. ` +
-                        (dom.showIntro.checked ? "Intromediate moves are included" : "Beginner moves only") + " (change it in the menu)."}),
+                        (dom.onlyNew.checked ? "Only your new moves" : dom.showIntro.checked ? "Intromediate moves are included" : "Beginner moves only") +
+                        (!dom.onlyNew.checked && MOVES.some(m=>m.custom) ? ", and your new moves" : "") + " (change it in the menu)."}),
         (()=>{ const b = el("button", {type:"button", className:"primary big-action", textContent:"Start"});
                b.addEventListener("click", callerStart);
                return b; })());
@@ -5826,7 +6377,7 @@ const LAST_BOX = BOX_DAYS.length - 1;
 const flash = {
     cards:loadJSON(FLASH_KEY),              // move name -> {box, due:"YYYY-MM-DD"}
     notes:loadJSON(NOTES_KEY),              // move name -> your notes
-    deck:localStorage.getItem(DECK_KEY) === "all" ? "all" : "beginner",
+    deck:["all", "new"].includes(localStorage.getItem(DECK_KEY)) ? localStorage.getItem(DECK_KEY) : "beginner",
     queue:[], at:0, revealed:false, tally:null, view:"home"
 };
 const NOTES_TEMPLATE = "Feet & position: \nArms & hand hold: \nLead: \nFollow: \nTurns & changing places: \nDetails: ";
@@ -5835,7 +6386,7 @@ const dayString = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2, 
 const today = ()=>dayString(new Date());
 const inDays = n=>{ const d = new Date(); d.setDate(d.getDate() + n); return dayString(d); };
 const cardOf = name => flash.cards[name] ?? { box:0, due:null };
-const deckMoves = ()=>MOVES.filter(m=>flash.deck === "all" || m.level === "beginner");
+const deckMoves = ()=>MOVES.filter(m=>flash.deck === "all" || (flash.deck === "new" ? m.custom : m.level === "beginner"));
 const isDue = name=>{ const c = cardOf(name); return !c.box || c.due <= today(); };
 const daysText = n => n === 0 ? "again now" : n === 1 ? "tomorrow" : `in ${n} days`;
 
@@ -5897,6 +6448,7 @@ function flashHomeView(){
         renderFlash();
     });
     const beginners = MOVES.filter(m=>m.level === "beginner").length;
+    const newCount = MOVES.filter(m=>m.custom).length;
     return el("div", {},
         el("p", {className:"intent"},
             el("b", {textContent:"Remember every move in full: "}),
@@ -5904,11 +6456,11 @@ function flashHomeView(){
             "important details. For each card, build the move up in order: feet and position first, then the arms, " +
             "then the lead and follow turns and changes of place. Then show the answer and say how well you knew it. " +
             "Cards you know well come back less often."),
-        setting("Cards", null, segmented(["beginner", "all"], flash.deck, v=>{
+        setting("Cards", null, segmented(["beginner", "all", ...(newCount || flash.deck === "new" ? ["new"] : [])], flash.deck, v=>{
             flash.deck = v;
             localStorage.setItem(DECK_KEY, v);
             renderFlash();
-        }, v=>v === "all" ? `All moves (${MOVES.length})` : `Beginner (${beginners})`)),
+        }, v=>v === "all" ? `All moves (${MOVES.length})` : v === "new" ? `New (${newCount})` : `Beginner (${beginners})`)),
         el("div", {className:"boxes", role:"img",
             ariaLabel:`New: ${inBox(0)}. ` + [1,2,3,4,5].map(b=>`Box ${b}: ${inBox(b)}`).join(", ")},
             ...[0,1,2,3,4,5].map(b=>el("div", {},
@@ -5933,7 +6485,7 @@ function flashCardView(){
             el("span", {textContent:`${flash.at + 1} of ${flash.queue.length}`}),
             el("span", {textContent:cardOf(name).box ? `Box ${cardOf(name).box}` : "New card"})),
         el("div", {className:"flash-name", textContent:name}),
-        el("div", {className:"flash-level", textContent:move.level}));
+        el("div", {className:"flash-level", textContent:move.of ? `Variation of ${move.of}` : move.level}));
     if(!flash.revealed){
         card.append(el("ol", {className:"flash-steps"},
             el("li", {textContent:"Feet and position"}),
@@ -5953,11 +6505,13 @@ function flashCardView(){
         facts.push(v.end ? `Can finish in ${POSITION_NAMES[v.end]} (${v.note})` : `Can start from ${POSITION_NAMES[v.start]} (${v.note})`);
     }
     const inClass = COMBINATIONS.filter(c=>c.moves.includes(name)).map(c=>c.id);
-    facts.push(inClass.length ? `In class combination${inClass.length > 1 ? "s" : ""} ${listText(inClass.map(String))}`
-                              : "Not in a class combination yet");
+    if(!move.custom) facts.push(inClass.length ? `In class combination${inClass.length > 1 ? "s" : ""} ${listText(inClass.map(String))}`
+                                               : "Not in a class combination yet");
     const followers = movePool().filter(m=>canFollow(name, m));
     facts.push(`Flows on into ${plural(followers.length, "move")} without a hand change`);
     card.append(el("ul", {className:"flash-facts"}, ...facts.map(f=>el("li", {textContent:f}))));
+    const steps = move.custom ? stepsView(newMoves.find(n=>n.id === move.id)?.steps) : null;
+    if(steps) card.append(el("h3", {className:"log-h", textContent:"Steps"}), steps);
 
     card.append(notesEditor(name));     // your own notes: the details the app doesn't know
 
@@ -6181,26 +6735,35 @@ function showMoveDetails(name){
         el("div", {className:"mp-head"},
             el("div", {style:"flex:1"},
                 el("h2", {id:"moveTitle", textContent:name}),
-                el("span", {className:`mp-level ${move.level}`, textContent:move.level})),
+                el("span", {className:`mp-level ${move.level}`, textContent:move.of ? `Variation of ${move.of}` : move.level})),
             close),
-        el("div", {className:"mp-holds"}, hold(move.from, "Starts"), el("span", {className:"arrow", textContent:"→"}), hold(move.to, "Finishes")),
+        el("div", {className:"mp-holds"}, hold(move.from, "Starts"), el("span", {className:"arrow", textContent:"→"}), hold(move.to, "Finishes"))
+    ];
+    const mine = move.custom ? newMoves.find(n=>n.id === move.id) : null;
+    if(mine){
+        const page = el("button", {type:"button", className:"primary mp-page"},
+            el("span", {}, "Open move page", el("small", {textContent:
+                [mine.videos?.length ? plural(mine.videos.length, "video") : "", mine.steps?.length ? plural(mine.steps.length, "step") : ""]
+                    .filter(Boolean).join(" · ") || "Steps, videos and status"})),
+            el("span", {ariaHidden:"true", textContent:"→"}));
+        page.addEventListener("click", ()=>openNewMoves(mine.id));
+        parts.push(el("p", {className:"mp-text mp-status", textContent:`${statusOf(mine)[2]} ${statusOf(mine)[1]} · ${priorityOf(mine)[1]} priority`}), page);
+    }
+    parts.push(
         el("h3", {className:"mp-section", textContent:"Feel"}),
         feelView(name),
-        notesEditor(name)
-    ];
+        notesEditor(name));
 
     const inClass = COMBINATIONS.filter(c=>c.moves.includes(name));
-    parts.push(el("h3", {textContent:"In class combinations"}));
-    if(inClass.length){
-        parts.push(el("div", {className:"mp-chips"}, ...inClass.map(c=>{
+    // (new moves are never in the class combinations)
+    if(!move.custom) parts.push(el("h3", {textContent:"In class combinations"}), inClass.length
+        ? el("div", {className:"mp-chips"}, ...inClass.map(c=>{
             const b = el("button", {type:"button", className:"combo-chip", textContent:`${c.id}`, title:c.moves.join(" → ")});
             b.setAttribute("aria-label", `Combination ${c.id}: ${c.moves.join(", ")}`);
             b.addEventListener("click", ()=>{ state.preview = null; selectCombo(c); });
             return b;
-        })));
-    }else{
-        parts.push(el("p", {className:"mp-text", textContent:"Not in a class combination yet"}));
-    }
+          }))
+        : el("p", {className:"mp-text", textContent:"Not in a class combination yet"}));
     const superAt = SUPER_COMBO.moves.indexOf(name);
     if(superAt >= 0){
         parts.push(el("p", {className:"mp-text", style:"margin-top:6px",
@@ -6224,8 +6787,10 @@ function showMoveDetails(name){
         ? `Box ${card.box} of ${LAST_BOX}; ${card.due <= today() ? "due now" : `next due ${card.due === inDays(1) ? "tomorrow" : card.due}`}`
         : "Not studied yet"}));
 
-    parts.push(el("a", {className:"mp-videos", href:VIDEOS_URL, target:"_blank", rel:"noopener"},
+    if(!move.custom){
+        parts.push(el("a", {className:"mp-videos", href:VIDEOS_URL, target:"_blank", rel:"noopener"},
             "Videos", el("span", {ariaHidden:"true", textContent:"↗"})));
+    }
 
     dom.movePanel.replaceChildren(...parts);
     dom.movePanel.dataset.move = name;
@@ -6238,7 +6803,7 @@ function closeMoveDetails(){
 }
 
 document.addEventListener("keydown", e=>{
-    if(e.key === "Escape" && dom.callerPage.hidden && dom.flashPage.hidden && dom.statsPage.hidden) closeMoveDetails();
+    if(e.key === "Escape" && dom.callerPage.hidden && dom.flashPage.hidden && dom.statsPage.hidden && dom.newPage.hidden) closeMoveDetails();
 });
 
 
@@ -6524,6 +7089,523 @@ dom.logClose.addEventListener("click", closeLog);
 document.addEventListener("keydown", e=>{ if(e.key === "Escape") closeLog(); });
 
 // =====================================================================
+// New Moves: your own library of moves beyond the class lists -
+// intermediate moves, and variations of moves you know. Laid out like a
+// moves organiser: a table (or boards by learning stage or priority), and
+// a page for each move with its video, the steps by counts, more examples
+// and your notes. They join the graph, combos, caller and flashcards.
+// =====================================================================
+
+const NEW_STATUS = [            // [key, label, emoji], from first steps to second nature
+    ["new",     "Haven't learned it yet",        "🌱"],
+    ["once",    "Learned it once",               "👀"],
+    ["partner", "Needs repetition with partner", "🔁"],
+    ["social",  "Needs social practice",         "💃"],
+    ["mostly",  "Mostly got it",                 "👍"],
+    ["natural", "Feels natural",                 "✨"]
+];
+const NEW_PRIORITY = [["high", "High"], ["medium", "Medium"], ["low", "Low"], ["none", "Not a priority"]];
+const statusOf = n => NEW_STATUS.find(s=>s[0] === n.status) ?? NEW_STATUS[0];
+const priorityOf = n => NEW_PRIORITY.find(p=>p[0] === n.priority) ?? NEW_PRIORITY[1];
+const kindText = n => n.kind === "variation" ? `Variation${n.of ? ` of ${n.of}` : ""}` : "Intermediate";
+const NEW_VIEW_KEY = "mj-moves:new-moves-view";
+// view: table | learning | priority; type: all | intermediate | variation;
+// open: the move whose page is showing; editing: {draft, isNew, added, removed}
+const nm = { view:"table", type:"all", ...loadJSON(NEW_VIEW_KEY), open:null, editing:null };
+const saveNewView = ()=>saveJSON(NEW_VIEW_KEY, { view:nm.view, type:nm.type });
+const uid = ()=>Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+const newMoveVideoKey = (n, v)=>`newmove-${n.id}-${v.id}`;
+
+// MOVES (and the lookups built from it) after new moves change.
+function syncMoves(){
+    MOVES.splice(CLASS_MOVE_COUNT);
+    MOVES.push(...usableNewMoves().map(asMove));
+    MOVE_STATES.clear();
+    MOVE_BY_SLUG.clear();
+    for(const m of MOVES){
+        MOVE_STATES.set(m.name, m);
+        MOVE_BY_SLUG.set(slug(m.name), m.name);
+    }
+}
+
+// Save the new moves and redraw everything made from the move list.
+function saveNewMoves(){
+    saveJSON(NEW_MOVES_KEY, newMoves);
+    syncMoves();
+    const any = MOVES.some(m=>m.custom);
+    dom.onlyNewToggle.hidden = !any;
+    if(!any && dom.onlyNew.checked){
+        dom.onlyNew.checked = false;
+        localStorage.setItem("mj-moves:only-new", "false");
+    }
+    built = built.filter(m=>MOVE_STATES.has(m));
+    saveJSON(BUILD_KEY, built);
+    cy.elements().remove();         // the lines are built from the move list
+    cy.add(buildElements());
+    applyLevelFilter();
+    const sel = state.selection?.kind === "combo" ? state.selection.combo : null;
+    if(sel && !sel.moves.every(m=>MOVE_STATES.has(m))) selectCombo(null);
+    applyLayout();
+    renderBuilder();
+    renderFavourites();
+    updateShuffleControls();
+}
+
+// A renamed move keeps its notes, feel, flashcard, favourites and log.
+function renameMoveData(from, to){
+    for(const [obj, key] of [[flash.notes, NOTES_KEY], [myFeel, FEEL_KEY], [flash.cards, FLASH_KEY]]){
+        if(from in obj){ obj[to] = obj[from]; delete obj[from]; saveJSON(key, obj); }
+    }
+    built = built.map(m=>m === from ? to : m);
+    const a = slug(from), b = slug(to);
+    let changed = false;
+    for(const k of Object.keys(stats)){
+        const parts = k.split(",");
+        if(!parts.includes(a)) continue;
+        stats[parts.map(p=>p === a ? b : p).join(",")] = stats[k];
+        delete stats[k];
+        changed = true;
+    }
+    if(changed) saveJSON(STATS_KEY, stats);
+    for(const e of logEntries) for(const c of e.combos) c.moves = c.moves.map(m=>m === from ? to : m);
+    saveLog();
+    for(const n of newMoves) if(n.of === from) n.of = to;
+}
+
+// ---- videos: from the camera roll (kept on this device) or a link ----
+
+// A player for a link, where the site allows one: {src, tall}
+function embedOf(url){
+    let u;
+    try{ u = new URL(url); }catch{ return null; }
+    const host = u.hostname.replace(/^(www|m)\./, "");
+    const id = s => /^[\w-]{6,}$/.test(s ?? "") ? s : null;
+    const yt = (v, tall=false)=>{
+        if(!id(v)) return null;
+        const t = (u.searchParams.get("t") ?? u.searchParams.get("start") ?? "").match(/^(\d+)s?$/);
+        return { src:`https://www.youtube-nocookie.com/embed/${v}${t ? `?start=${t[1]}` : ""}`, tall };
+    };
+    let m;
+    if(host === "youtu.be") return yt(u.pathname.slice(1));
+    if(host === "youtube.com" || host === "music.youtube.com"){
+        if((m = u.pathname.match(/^\/(shorts|embed|live)\/([\w-]+)/))) return yt(m[2], m[1] === "shorts");
+        return yt(u.searchParams.get("v"));
+    }
+    if(host === "instagram.com" && (m = u.pathname.match(/^\/(?:[\w.]+\/)?(p|reels?|tv)\/([\w-]+)/))){
+        return { src:`https://www.instagram.com/${m[1] === "reels" ? "reel" : m[1]}/${m[2]}/embed`, tall:true };
+    }
+    if(host === "vimeo.com" && (m = u.pathname.match(/^\/(\d+)/))) return { src:`https://player.vimeo.com/video/${m[1]}` };
+    if(host === "tiktok.com" && (m = u.pathname.match(/\/video\/(\d+)/))) return { src:`https://www.tiktok.com/embed/v2/${m[1]}`, tall:true };
+    return null;
+}
+
+let nmUrls = [];                // object URLs for stored videos, freed on each redraw
+const blobUrl = blob=>{ const u = URL.createObjectURL(blob); nmUrls.push(u); return u; };
+
+function videoView(n, v){
+    const box = el("div", {className:"nm-video"});
+    if(v.kind === "file"){
+        const missing = ()=>box.replaceChildren(el("p", {className:"mp-text nm-missing",
+            textContent:`${v.name} isn't stored on this device (videos from the camera roll stay on the device they were added on).`}));
+        videoStore.get(newMoveVideoKey(n, v)).then(blob=>{
+            if(!blob) return missing();
+            box.replaceChildren(el("video", {controls:true, playsInline:true, preload:"metadata", src:blobUrl(blob)}));
+        }, missing);
+        return box;
+    }
+    const embed = embedOf(v.url);
+    let host = "";
+    try{ host = new URL(v.url).hostname.replace(/^(www|m)\./, ""); }catch{}
+    const SITES = { "youtu.be":"YouTube", "youtube.com":"YouTube", "instagram.com":"Instagram", "vimeo.com":"Vimeo",
+                    "tiktok.com":"TikTok", "photos.app.goo.gl":"Google Photos", "photos.google.com":"Google Photos", "icloud.com":"iCloud" };
+    host = SITES[host] ?? host;
+    if(embed){
+        box.classList.toggle("tall", embed.tall);
+        box.append(el("div", {className:"nm-frame"}, el("iframe", {src:embed.src, loading:"lazy",
+            title:`Video: ${n.name}`, referrerPolicy:"strict-origin-when-cross-origin",
+            allow:"autoplay; encrypted-media; picture-in-picture; fullscreen"})));
+    }else if(/\.(mp4|webm|m4v|mov)(\?|#|$)/i.test(v.url)){
+        box.append(el("video", {controls:true, playsInline:true, preload:"metadata", src:v.url}));
+    }
+    box.append(el("a", {className:"nm-open", href:v.url, target:"_blank", rel:"noopener noreferrer",
+        textContent:embed ? `Open on ${host} ↗` : `Watch on ${host || "the web"} ↗`}));
+    return box;
+}
+
+// Steps by counts: "1-4  Start in open position…"; more lines become sub-points.
+function stepsView(steps){
+    const shown = (steps ?? []).filter(s=>s.text.trim());
+    if(!shown.length) return null;
+    return el("ul", {className:"nm-steps"}, ...shown.map(s=>{
+        const [first, ...more] = s.text.split("\n").map(t=>t.replace(/^\s*[-•*]\s*/, "").trim()).filter(Boolean);
+        return el("li", {},
+            ...(s.counts.trim() ? [el("b", {className:"nm-counts", textContent:s.counts.trim()})] : []),
+            el("span", {textContent:first}),
+            ...(more.length ? [el("ul", {}, ...more.map(t=>el("li", {textContent:t})))] : []));
+    }));
+}
+
+// ---- the list: a table, or boards by status or priority ----
+
+function newRow(n){
+    const st = statusOf(n), pr = priorityOf(n);
+    const row = el("button", {type:"button", className:"nm-row"},
+        el("span", {className:"nm-name"}, el("b", {textContent:n.name}), el("small", {textContent:kindText(n)})),
+        el("span", {className:`nm-status s-${st[0]}`}, el("span", {ariaHidden:"true", textContent:st[2]}), ` ${st[1]}`),
+        el("span", {className:`nm-priority p-${pr[0]}`, textContent:pr[1]}),
+        el("span", {className:"nm-holds", title:`${POSITION_NAMES[n.from]} → ${POSITION_NAMES[n.to]}`},
+            posIcon(n.from, 24), el("span", {className:"arrow", textContent:"→"}), posIcon(n.to, 24)),
+        el("span", {className:"nm-has-video", textContent:n.videos?.length ? "🎬" : "",
+            title:n.videos?.length ? plural(n.videos.length, "video") : ""}));
+    row.addEventListener("click", ()=>{ nm.open = n.id; renderNew(); });
+    return row;
+}
+
+function newListView(){
+    const add = el("button", {type:"button", className:"primary big-action", textContent:"+ Add a new move"});
+    add.addEventListener("click", ()=>startEdit(null));
+    const parts = [
+        el("p", {className:"intent"},
+            el("b", {textContent:"Your own library of moves beyond the class lists: "}),
+            "intermediate moves, and variations of moves you know. Give each one its hand holds, a video, the steps " +
+            "by counts and your notes, and track how well you know it. They join the graph, Random Combo, Build a " +
+            "Combo, the Move Caller and the flashcards."),
+        add
+    ];
+    if(!newMoves.length){
+        parts.push(el("p", {className:"summary-line", textContent:"No new moves yet. Add one from a class, a workshop or a video you liked."}));
+        return el("div", {}, ...parts);
+    }
+
+    const natural = newMoves.filter(n=>n.status === "natural").length;
+    const withVideo = newMoves.filter(n=>n.videos?.length).length;
+    const only = el("button", {type:"button", className:"secondary nm-only",
+        textContent:dom.onlyNew.checked ? "Show all moves on the graph" : "Show only new moves on the graph"});
+    only.addEventListener("click", ()=>{
+        dom.onlyNew.checked = !dom.onlyNew.checked;
+        dom.onlyNew.dispatchEvent(new Event("change"));
+        closeNew();
+    });
+    parts.push(
+        el("p", {className:"summary-line", textContent:
+            `${plural(newMoves.length, "new move")} · ${natural} feel${natural === 1 ? "s" : ""} natural · ${withVideo} with video${withVideo === 1 ? "" : "s"}`}),
+        only,
+        el("div", {className:"nm-controls"},
+            segmented(["table", "learning", "priority"], nm.view, v=>{ nm.view = v; saveNewView(); renderNew(); },
+                v=>({ table:"Table", learning:"By status", priority:"By priority" })[v]),
+            segmented(["all", "intermediate", "variation"], nm.type, v=>{ nm.type = v; saveNewView(); renderNew(); },
+                v=>({ all:"All", intermediate:"Intermediate", variation:"Variations" })[v])));
+
+    const shown = newMoves.filter(n=>nm.type === "all" || n.kind === nm.type).toSorted((a,b)=>b.created - a.created);
+    if(!shown.length){
+        parts.push(el("p", {className:"summary-line", textContent:nm.type === "variation" ? "No variations yet." : "No intermediate moves yet."}));
+        return el("div", {}, ...parts);
+    }
+    const head = ()=>el("div", {className:"nm-row nm-head", ariaHidden:"true"},
+        el("span", {textContent:"Name"}), el("span", {textContent:"Status"}), el("span", {textContent:"Priority"}),
+        el("span", {textContent:"Hands"}), el("span", {textContent:"🎬"}));
+    if(nm.view === "table"){
+        parts.push(el("div", {className:"nm-table"}, head(), ...shown.map(newRow)));
+    }else{
+        const groups = nm.view === "learning"
+            ? NEW_STATUS.map(([k, label, emoji])=>[`${emoji} ${label}`, shown.filter(n=>statusOf(n)[0] === k)])
+            : NEW_PRIORITY.map(([k, label])=>[label, shown.filter(n=>priorityOf(n)[0] === k)]);
+        for(const [label, moves] of groups){
+            parts.push(el("h3", {className:`nm-group${moves.length ? "" : " empty"}`}, label,
+                el("span", {className:"count-badge", textContent:moves.length})));
+            if(moves.length) parts.push(el("div", {className:"nm-table"}, ...moves.map(newRow)));
+        }
+    }
+    return el("div", {}, ...parts);
+}
+
+// ---- a move's page ----
+
+function pickList(options, value, label, onPick){
+    const s = el("select", {ariaLabel:label}, ...options.map(([k, text])=>el("option", {value:k, textContent:text, selected:k === value})));
+    s.addEventListener("change", ()=>onPick(s.value));
+    return s;
+}
+
+function newPageView(n){
+    const back = el("button", {type:"button", className:"secondary log-back", textContent:"← All new moves"});
+    back.addEventListener("click", ()=>{ nm.open = null; renderNew(); });
+    const saveQuietly = ()=>saveJSON(NEW_MOVES_KEY, newMoves);
+    const prop = (label, ...value)=>el("div", {className:"nm-prop"}, el("span", {className:"nm-prop-key", textContent:label}),
+        el("span", {className:"nm-prop-value"}, ...value));
+    const [main, ...more] = n.videos ?? [];
+
+    const onGraph = el("button", {type:"button", className:"secondary", textContent:"Show on the graph"});
+    onGraph.addEventListener("click", ()=>{
+        closeNew();
+        state.preview = null;
+        selectCombo({ id:null, caption:"Move", moves:[n.name] });
+    });
+    const edit = el("button", {type:"button", className:"secondary", textContent:"Edit move"});
+    edit.addEventListener("click", ()=>startEdit(n));
+    const del = el("button", {type:"button", className:"log-delete", textContent:"Delete move"});
+    del.addEventListener("click", async ()=>{
+        if(!confirm(`Delete ${n.name}${n.videos?.length ? " and its videos" : ""}? Your notes for it go too.`)) return;
+        for(const v of n.videos ?? []) if(v.kind === "file"){ try{ await videoStore.remove(newMoveVideoKey(n, v)); }catch{} }
+        for(const [obj, key] of [[flash.notes, NOTES_KEY], [myFeel, FEEL_KEY], [flash.cards, FLASH_KEY]]){
+            if(n.name in obj){ delete obj[n.name]; saveJSON(key, obj); }
+        }
+        newMoves = newMoves.filter(x=>x !== n);
+        saveNewMoves();
+        nm.open = null;
+        renderNew();
+        showToast(`Deleted ${n.name}`);
+    });
+
+    const hold = id=>el("span", {className:"nm-hold"}, posIcon(id, 26), POSITION_NAMES[id]);
+    const steps = stepsView(n.steps);
+    return el("div", {className:"nm-page"},
+        back,
+        el("h2", {className:"nm-title", textContent:n.name}),
+        el("span", {className:`mp-level ${n.kind}`, textContent:kindText(n)}),
+        el("div", {className:"nm-props"},
+            prop("Status", pickList(NEW_STATUS.map(([k, l, e])=>[k, `${e} ${l}`]), statusOf(n)[0], "Status",
+                v=>{ n.status = v; saveQuietly(); })),
+            prop("Priority", pickList(NEW_PRIORITY, priorityOf(n)[0], "Priority", v=>{ n.priority = v; saveQuietly(); })),
+            prop("Hands", hold(n.from), el("span", {className:"arrow", textContent:"→"}), hold(n.to))),
+        main ? videoView(n, main)
+             : el("p", {className:"nm-empty", textContent:"No video yet. Edit the move to add one from your camera roll or a link."}),
+        el("h3", {className:"log-h", textContent:"Steps"}),
+        steps ?? el("p", {className:"mp-text", textContent:"No steps yet. Edit the move to write them down by counts."}),
+        ...(more.length ? [el("h3", {className:"log-h", textContent:"More examples"}), ...more.map(v=>videoView(n, v))] : []),
+        el("h3", {className:"log-h", textContent:"Feel"}),
+        feelView(n.name),
+        notesEditor(n.name),
+        el("div", {className:"nm-actions"}, onGraph, edit),
+        del);
+}
+
+// ---- adding and editing ----
+
+function startEdit(n){
+    const draft = n ? structuredClone(n) : {
+        id:`nm-${uid()}`, name:"", kind:"intermediate", of:null, from:"lr", to:"lr",
+        energy:"medium", distance:"normal", smoothness:"normal", status:"new", priority:"medium",
+        steps:[{ counts:"1-4", text:"" }, { counts:"5-8", text:"" }], videos:[], created:Date.now()
+    };
+    draft.steps ??= [];
+    draft.videos ??= [];
+    nm.editing = { draft, isNew:!n, original:n, added:[], removed:[] };
+    renderNew();
+}
+
+async function cancelEdit(){
+    const ed = nm.editing;
+    nm.editing = null;
+    for(const key of ed?.added ?? []){ try{ await videoStore.remove(key); }catch{} }
+}
+
+function holdPicker(value, label, onPick){
+    const group = el("div", {className:"nm-holdpick", role:"radiogroup", ariaLabel:label});
+    for(const id of ["lr", "rr", "rl", "bh"]){
+        const b = el("button", {type:"button"}, posIcon(id, 30), el("span", {textContent:POSITION_NAMES[id]}));
+        b.setAttribute("role", "radio");
+        b.setAttribute("aria-checked", id === value);
+        b.addEventListener("click", ()=>onPick(id));
+        group.append(b);
+    }
+    return group;
+}
+
+function stepsEditor(draft){
+    const box = el("div", {className:"nm-steps-edit"});
+    const nextCounts = ()=>({ "1-4":"5-8", "5-8":"1-4" })[draft.steps.at(-1)?.counts.trim()] ?? "";
+    const paint = ()=>{
+        const add = el("button", {type:"button", className:"secondary", textContent:"+ Add a step"});
+        add.addEventListener("click", ()=>{
+            draft.steps.push({ counts:nextCounts(), text:"" });
+            paint();
+            box.querySelectorAll("textarea")[draft.steps.length-1]?.focus();
+        });
+        box.replaceChildren(...draft.steps.map((s, i)=>{
+            const counts = el("input", {type:"text", value:s.counts, placeholder:"1-4", ariaLabel:`Step ${i+1}: counts`});
+            counts.addEventListener("input", ()=>{ s.counts = counts.value; });
+            const text = el("textarea", {value:s.text, rows:2, ariaLabel:`Step ${i+1}: what happens`,
+                placeholder:i === 0 ? "What happens: feet, hands, lead and follow. Extra lines become sub-points." : ""});
+            text.addEventListener("input", ()=>{ s.text = text.value; });
+            const remove = el("button", {type:"button", className:"nm-x", textContent:"✕", ariaLabel:`Remove step ${i+1}`});
+            remove.addEventListener("click", ()=>{ draft.steps.splice(i, 1); paint(); });
+            return el("div", {className:"nm-step-row"}, counts, text, remove);
+        }), add);
+    };
+    paint();
+    return box;
+}
+
+function videosEditor(ed){
+    const {draft} = ed;
+    const list = el("div", {className:"nm-vlist"});
+    const paint = ()=>{
+        list.replaceChildren(...draft.videos.map((v, i)=>{
+            const what = v.kind === "file" ? `${v.name} · ${sizeText(v.size)}` : v.url;
+            const main = el("button", {type:"button", className:"nm-mini", textContent:"Make main"});
+            main.addEventListener("click", ()=>{ draft.videos.unshift(...draft.videos.splice(i, 1)); paint(); });
+            const remove = el("button", {type:"button", className:"nm-x", textContent:"✕", ariaLabel:`Remove ${what}`});
+            remove.addEventListener("click", ()=>{
+                draft.videos.splice(i, 1);
+                if(v.kind === "file"){
+                    const key = newMoveVideoKey(draft, v);
+                    if(ed.added.includes(key)){ ed.added = ed.added.filter(k=>k !== key); videoStore.remove(key).catch(()=>{}); }
+                    else ed.removed.push(key);
+                }
+                paint();
+            });
+            return el("div", {className:"nm-vitem"},
+                el("span", {className:`nm-vtag${i ? "" : " main"}`, textContent:i ? "Example" : "Main"}),
+                el("span", {className:"nm-vwhat", textContent:`${v.kind === "file" ? "🎬" : "🔗"} ${what}`}),
+                ...(i ? [main] : []), remove);
+        }));
+        if(!draft.videos.length) list.append(el("p", {className:"mp-text", textContent:"No videos yet. The first one is the main video; the rest show under More examples."}));
+    };
+    paint();
+
+    const input = el("input", {type:"file", accept:"video/*", hidden:true});
+    const pick = el("button", {type:"button", className:"secondary", textContent:"🎬 Add from your camera roll"});
+    pick.addEventListener("click", ()=>input.click());
+    input.addEventListener("change", async ()=>{
+        const file = input.files?.[0];
+        input.value = "";
+        if(!file) return;
+        if(file.size > 500e6 && !confirm(`This video is ${sizeText(file.size)}. Keep a copy on this device anyway?`)) return;
+        const v = { id:uid(), kind:"file", name:file.name, size:file.size, type:file.type };
+        pick.disabled = true;
+        pick.textContent = "Saving…";
+        try{
+            await videoStore.put(newMoveVideoKey(draft, v), file);
+            ed.added.push(newMoveVideoKey(draft, v));
+            draft.videos.push(v);
+        }catch{
+            showToast("Couldn't save the video - the device may be out of space");
+        }
+        pick.disabled = false;
+        pick.textContent = "🎬 Add from your camera roll";
+        paint();
+    });
+
+    const link = el("input", {type:"url", placeholder:"https:// (YouTube, Instagram, Google Photos…)", ariaLabel:"Video link"});
+    const addLink = el("button", {type:"button", className:"secondary", textContent:"Add link"});
+    const takeLink = ()=>{
+        const url = link.value.trim();
+        if(!/^https?:\/\/\S+$/i.test(url)){ showToast("Paste a link starting with https://"); return; }
+        draft.videos.push({ id:uid(), kind:"link", url });
+        link.value = "";
+        paint();
+    };
+    addLink.addEventListener("click", takeLink);
+    link.addEventListener("keydown", e=>{ if(e.key === "Enter"){ e.preventDefault(); takeLink(); } });
+    return el("div", {},
+        list,
+        el("div", {className:"nm-vadd"}, pick, input),
+        el("div", {className:"log-link"}, link, addLink),
+        el("p", {className:"mp-text log-hint", textContent:
+            "YouTube, Instagram, Vimeo and TikTok links play here. Videos from your camera roll are copied into this app " +
+            "on this device only (include them in a backup to keep them safe)."}));
+}
+
+function newEditView(){
+    const ed = nm.editing, {draft} = ed;
+    const repaint = ()=>renderNew({keepScroll:true});
+    const name = el("input", {type:"text", value:draft.name, placeholder:"e.g. Shoulder Wrap Dip", id:"nmName",
+        autocomplete:"off", enterKeyHint:"done"});
+    name.addEventListener("input", ()=>{ draft.name = name.value; });
+
+    const kind = segmented(["intermediate", "variation"], draft.kind, v=>{ draft.kind = v; if(v !== "variation") draft.of = null; repaint(); },
+        v=>v === "variation" ? "Variation" : "Intermediate");
+    const parents = MOVES.filter(m=>m.name !== ed.original?.name).map(m=>m.name);
+    const of = pickList([["", "Choose a move…"], ...parents.map(p=>[p, p])], draft.of ?? "", "Variation of", v=>{
+        draft.of = v || null;
+        const p = MOVE_STATES.get(v);
+        if(p) Object.assign(draft, { from:p.from, to:p.to, energy:p.energy, distance:p.distance, smoothness:p.smoothness });
+        repaint();
+    });
+
+    const error = el("p", {className:"nm-error", role:"alert"});
+    const save = el("button", {type:"button", className:"primary big-action", textContent:ed.isNew ? "Add move" : "Save changes"});
+    save.addEventListener("click", async ()=>{
+        const clean = draft.name.trim().replace(/\s+/g, " ");
+        const oldName = ed.original?.name;
+        const clash = MOVES.find(m=>m.name !== oldName && (m.name.toLowerCase() === clean.toLowerCase() || slug(m.name) === slug(clean)));
+        const problem = !clean ? "Give the move a name."
+            : !slug(clean) ? "Use some letters or numbers in the name."
+            : clash ? `There's already a move called ${clash.name}.`
+            : draft.kind === "variation" && !draft.of ? "Choose which move it's a variation of."
+            : null;
+        if(problem){ error.textContent = problem; (problem.includes("name") || clash ? name : of).focus(); return; }
+        draft.name = clean;
+        draft.steps = draft.steps.filter(s=>s.text.trim());
+        if(oldName && oldName !== clean) renameMoveData(oldName, clean);
+        for(const key of ed.removed){ try{ await videoStore.remove(key); }catch{} }
+        const at = newMoves.findIndex(x=>x.id === draft.id);
+        if(at >= 0) newMoves[at] = draft;
+        else newMoves.push(draft);
+        nm.editing = null;
+        nm.open = draft.id;
+        saveNewMoves();
+        renderNew();
+        if(ed.isNew) showToast(`Added ${clean} to the graph`);
+    });
+    const cancel = el("button", {type:"button", className:"secondary big-action", textContent:"Cancel"});
+    cancel.addEventListener("click", async ()=>{ await cancelEdit(); renderNew(); });
+
+    return el("div", {className:"nm-edit log-entry"},
+        el("h2", {className:"nm-title", textContent:ed.isNew ? "Add a new move" : `Edit ${ed.original.name}`}),
+        el("div", {className:"flash-notes"}, el("label", {htmlFor:"nmName", textContent:"Name"}), name),
+        setting("Type", "An intermediate move of its own, or a variation of a move you know", kind),
+        ...(draft.kind === "variation" ? [setting("Variation of", "Copies its hand holds and feel, which you can change", of)] : []),
+        el("h3", {className:"log-h", textContent:"Starts in"}),
+        holdPicker(draft.from, "Starts in", v=>{ draft.from = v; repaint(); }),
+        el("h3", {className:"log-h", textContent:"Finishes in"}),
+        holdPicker(draft.to, "Finishes in", v=>{ draft.to = v; repaint(); }),
+        setting("Status", null, pickList(NEW_STATUS.map(([k, l, e])=>[k, `${e} ${l}`]), statusOf(draft)[0], "Status", v=>{ draft.status = v; })),
+        setting("Priority", null, pickList(NEW_PRIORITY, priorityOf(draft)[0], "Priority", v=>{ draft.priority = v; })),
+        el("h3", {className:"log-h", textContent:"Steps"}),
+        el("p", {className:"mp-text nm-help", textContent:"By counts, like 1-4 and 5-8. Start from the feet and position, then the arms, then the lead and follow."}),
+        stepsEditor(draft),
+        el("h3", {className:"log-h", textContent:"Videos"}),
+        videosEditor(ed),
+        error,
+        save, cancel);
+}
+
+function renderNew({keepScroll=false}={}){
+    if(dom.newPage.hidden) return;
+    const top = dom.newPage.scrollTop;
+    nmUrls.forEach(u=>URL.revokeObjectURL(u));
+    nmUrls = [];
+    const open = newMoves.find(n=>n.id === nm.open);
+    if(!open) nm.open = null;
+    dom.newBody.replaceChildren(nm.editing ? newEditView() : open ? newPageView(open) : newListView());
+    dom.newPage.scrollTop = keepScroll ? top : 0;
+    if(nm.editing?.isNew && !keepScroll) document.getElementById("nmName")?.focus();
+}
+
+function openNewMoves(id=null){
+    closeMoveDetails();
+    nm.open = id;
+    openPage(dom.newPage, dom.newClose);
+    renderNew();
+}
+
+function closeNew(){
+    if(dom.newPage.hidden) return;
+    if(nm.editing) cancelEdit();
+    dom.newPage.hidden = true;
+    nmUrls.forEach(u=>URL.revokeObjectURL(u));
+    nmUrls = [];
+    dom.newBody.replaceChildren();          // stop any video playing
+    dom.newBtn.focus({preventScroll:true});
+}
+
+dom.newBtn.addEventListener("click", ()=>openNewMoves());
+dom.newClose.addEventListener("click", closeNew);
+document.addEventListener("keydown", e=>{ if(e.key === "Escape") closeNew(); });
+
+// =====================================================================
 // Backup & restore: everything the app keeps in this browser (notes,
 // favourites, feel, flashcards, the Practice Log, settings, and - if you
 // choose - the videos attached to the log) saved to one file, and read
@@ -6557,6 +7639,7 @@ function backupSummary(data, videoCount){
         [count(parse("mj-moves:move-feel")), "move", "with your own feel"],
         [count(parse("mj-moves:flashcards")), "flashcard", "studied"],
         [count(parse(LOG_KEY)), "log entry", ""],
+        [count(parse(NEW_MOVES_KEY)), "new move", ""],
         [data["mj-moves:secret-notes"] ? 1 : 0, "secret", "🤫"],
         [videoCount, "video", ""]
     ];
@@ -6571,6 +7654,9 @@ const blobToDataUrl = blob=>new Promise((resolve, reject)=>{
     r.readAsDataURL(blob);
 });
 
+// [IndexedDB key, video] for every new move's video from the camera roll
+const newMoveFiles = ()=>newMoves.flatMap(n=>(n.videos ?? []).filter(v=>v.kind === "file").map(v=>[newMoveVideoKey(n, v), v]));
+
 async function makeBackup(withVideos){
     const data = Object.fromEntries(storedKeys().map(k=>[k, localStorage.getItem(k)]));
     const videos = {};
@@ -6579,6 +7665,12 @@ async function makeBackup(withVideos){
             try{
                 const blob = await videoStore.get(e.id);
                 if(blob) videos[e.id] = { name:e.video.name, type:blob.type || e.video.type, data:await blobToDataUrl(blob) };
+            }catch{ /* skip a video that can't be read */ }
+        }
+        for(const [key, v] of newMoveFiles()){
+            try{
+                const blob = await videoStore.get(key);
+                if(blob) videos[key] = { name:v.name, type:blob.type || v.type, data:await blobToDataUrl(blob) };
             }catch{ /* skip a video that can't be read */ }
         }
     }
@@ -6648,8 +7740,8 @@ function renderBackup(){
     if(dom.backupPage.hidden) return;
     const keys = storedKeys();
     const data = Object.fromEntries(keys.map(k=>[k, localStorage.getItem(k)]));
-    const withVideo = logEntries.filter(e=>e.video);
-    const videoBytes = withVideo.reduce((n, e)=>n + (e.video.size || 0), 0);
+    const withVideo = [...logEntries.filter(e=>e.video).map(e=>e.video), ...newMoveFiles().map(([, v])=>v)];
+    const videoBytes = withVideo.reduce((n, v)=>n + (v.size || 0), 0);
     const what = backupSummary(data, withVideo.length);
     const last = localStorage.getItem(LAST_BACKUP_KEY);
     const lastText = last ? (()=>{ const d = daysAgo(dayString(new Date(last)));
@@ -6674,8 +7766,8 @@ function renderBackup(){
         what.length ? el("ul", {className:"flash-facts"}, ...what.map(t=>el("li", {textContent:t})))
                     : el("p", {className:"mp-text", textContent:"Nothing yet - just your settings."}),
         setting("Include videos", withVideo.length
-            ? `${plural(withVideo.length, "video")} from the Practice Log, ${sizeText(videoBytes)} - makes the file much bigger`
-            : "No videos attached to the log", include),
+            ? `${plural(withVideo.length, "video")} from the Practice Log and New Moves, ${sizeText(videoBytes)} - makes the file much bigger`
+            : "No videos from your camera roll yet", include),
         save,
         el("p", {className:"summary-line", textContent:last
             ? `Last backup: ${lastText}.` : "You haven't saved a backup on this device yet."}),
