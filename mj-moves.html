@@ -556,6 +556,31 @@ body.menu-open #backdrop{
     filter:brightness(0.95);
 }
 
+.secondary{
+    min-height:44px;
+    border:1px solid #ccc;
+    border-radius:8px;
+    background:white;
+    color:var(--ink);
+    font:inherit;
+    cursor:pointer;
+}
+
+.secondary:hover{
+    background:#f5f5f5;
+}
+
+.primary:disabled,
+.secondary:disabled{
+    opacity:0.45;
+    cursor:default;
+    filter:none;
+}
+
+#shuffleHint{
+    margin:2px 0 0;
+}
+
 .combo-row.super-row{
     margin:10px 0 12px;
 }
@@ -741,6 +766,15 @@ body.menu-open #backdrop{
 </div>
 </details>
 
+<details id="shuffleSection" class="menu-section" open>
+<summary><h2>Shuffle Order</h2></summary>
+<div class="random-controls">
+<button type="button" id="shuffleBtn" class="primary">Shuffle current combination</button>
+<button type="button" id="replaceBtn" class="secondary">Replace a hand change with a move</button>
+<p class="hint" id="shuffleHint"></p>
+</div>
+</details>
+
 <details id="favSection" class="menu-section" open>
 <summary><h2>Favourites</h2></summary>
 <div id="favList"></div>
@@ -796,22 +830,27 @@ const MOVES = [
 { name:"Short Manhattan",   from:"lr", to:"lr", level:"intromediate" }
 ];
 
-// Hand changes that let one move flow into the next when the first ends in
-// a different hand position from where the second starts:
-// [move, next move, what to do in between]
-const HAND_TRANSITIONS = [
-["Shoulder Block",   "Block & Turn",  "swap to R"],
-["Shoulder Block",   "Accordion",     "offer L"],
-["Short First Move", "Loop Throughs", "trace R"],
-["Loop Throughs",    "Hatchback",     "drop R"],
-["Loop Throughs",    "New Yorker",    "drop R"],
-["Squeezebox",       "Hook Turn",     "swap to R"]
+// How to get from one move into the next when the first finishes in a
+// different hand position from where the next starts. Tried in this order:
+//   1. a variation of the first move that finishes elsewhere (end)
+//   2. a variation of the next move that starts elsewhere (start)
+//   3. a general hand swap between the two positions
+//   4. otherwise a plain "hand change" (and a console warning)
+// We prefer moves that link without any of these.
+//
+// Move variations. "ending: true" means it's really the move ending
+// differently (shown as a tag on the move); the others are shown as a hand
+// change between the moves.
+const MOVE_VARIATIONS = [
+{ move:"Basket",           end:"bh",   note:"keep both", ending:true },
+{ move:"Short First Move", end:"bh",   note:"trace R" },
+{ move:"Loop Throughs",    end:"lr",   note:"drop R" },
+{ move:"Accordion",        start:"lr", note:"offer L" }
 ];
 
-// Moves that can finish in a different hand position when the next move
-// needs it: [move, alternative end position, how]
-const ALT_ENDINGS = [
-["Basket", "bh", "keep both"]
+// General hand swaps, usable after any move: [from position, to position, note]
+const HAND_SWAPS = [
+["lr", "rr", "swap to R"]
 ];
 
 const COMBINATIONS = [
@@ -844,12 +883,31 @@ const SUPER_COMBO = {
 const STATES = ["rr","lr","rl","bh"];
 const MOVE_STATES = new Map(MOVES.map(m=>[m.name, m]));      // name -> {name, from, to, level}
 const LEVELS = ["beginner", "intromediate"];
-const TRANSITION_NOTES = new Map(HAND_TRANSITIONS.map(([a,b,note])=>[`${a} > ${b}`, note]));
-
 // Does going from move a into move b need a hand change?
 const needsHandChange = (a, b) => MOVE_STATES.get(a).to !== MOVE_STATES.get(b).from;
-// What the hand change is called ("hand change" if it isn't in the data).
-const handTransition = (a, b) => TRANSITION_NOTES.get(`${a} > ${b}`) ?? "hand change";
+
+// How move a leads into move b:
+//   {kind:"link"}                         they already link
+//   {kind:"ending", to, note}             a finishes differently (e.g. keep both)
+//   {kind:"change", note, known}          a hand change between them
+function bridge(a, b){
+    const from = MOVE_STATES.get(a).to, to = MOVE_STATES.get(b).from;
+    if(from === to) return { kind:"link" };
+    const end = MOVE_VARIATIONS.find(v=>v.move === a && v.end === to);
+    if(end?.ending) return { kind:"ending", to, note:end.note };
+    if(end) return { kind:"change", note:end.note, known:true };
+    const start = MOVE_VARIATIONS.find(v=>v.move === b && v.start === from);
+    if(start) return { kind:"change", note:start.note, known:true };
+    const swap = HAND_SWAPS.find(([f,t])=>f === from && t === to);
+    if(swap) return { kind:"change", note:swap[2], known:true };
+    return { kind:"change", note:"hand change", known:false };
+}
+
+// How much we'd rather not use a bridge: linking moves are best.
+const bridgeCost = (a, b)=>{
+    const br = bridge(a, b);
+    return br.kind === "link" || br.kind === "ending" ? 0 : br.known ? 1 : 3;
+};
 const sameMoves = (a, b) => a.length === b.length && a.every((m,i)=>m === b[i]);
 
 // How a sequence of moves is danced: where each move really ends (it may
@@ -866,15 +924,13 @@ function planMoves(moves, {loops=false}={}){
         // a looping combination's last move leads back into the first, so it
         // may need its alternative ending too (Basket keeping both hands)
         const wrapTo = loops && i === moves.length-1 ? MOVE_STATES.get(moves[0]) : null;
-        const target = next ?? wrapTo;
-        let to = st.to, variant = null;
-        if(target && to !== target.from){
-            const alt = ALT_ENDINGS.find(([m,end])=>m === name && end === target.from);
-            if(alt) [, to, variant] = alt;
-        }
+        const targetName = next ? moves[i+1] : wrapTo ? moves[0] : null;
+        const br = targetName ? bridge(name, targetName) : { kind:"link" };
+        const to = br.kind === "ending" ? br.to : st.to;
+        const variant = br.kind === "ending" ? br.note : null;
         plan.push({ kind:"move", index:i, name, from:st.from, to, variant });
-        if(next && to !== next.from){
-            plan.push({ kind:"transition", index:i, from:to, to:next.from, note:handTransition(name, moves[i+1]) });
+        if(next && br.kind === "change"){
+            plan.push({ kind:"transition", index:i, from:to, to:next.from, note:br.note });
         }
     });
     return plan;
@@ -885,9 +941,10 @@ function planMoves(moves, {loops=false}={}){
     for(const m of MOVES){
         if(!LEVELS.includes(m.level)) console.warn(`Move "${m.name}": unknown level "${m.level}"`);
     }
-    for(const [a,b] of HAND_TRANSITIONS){
-        if(!MOVE_STATES.has(a) || !MOVE_STATES.has(b)) console.warn(`Hand transition: unknown move in "${a} > ${b}"`);
-        else if(!needsHandChange(a, b)) console.warn(`Hand transition "${a} > ${b}" isn't needed: the moves already link`);
+    for(const v of MOVE_VARIATIONS){
+        const m = MOVE_STATES.get(v.move);
+        if(!m) console.warn(`Move variation: unknown move "${v.move}"`);
+        else if(m.to === v.end || m.from === v.start) console.warn(`Move variation for ${v.move} doesn't change anything`);
     }
     const beginner = MOVES.filter(m=>m.level === "beginner").map(m=>m.name);
     if(SUPER_COMBO.moves.length !== beginner.length || !beginner.every(m=>SUPER_COMBO.moves.includes(m))){
@@ -900,10 +957,8 @@ function planMoves(moves, {loops=false}={}){
                 return;
             }
             const next = combo.moves[i+1];
-            if(next && MOVE_STATES.has(next) && needsHandChange(name, next) &&
-               !TRANSITION_NOTES.has(`${name} > ${next}`) &&
-               !ALT_ENDINGS.some(([m,end])=>m === name && end === MOVE_STATES.get(next).from)){
-                console.warn(`Combination ${combo.id}: ${name} → ${next} needs a hand transition in HAND_TRANSITIONS`);
+            if(next && MOVE_STATES.has(next) && bridge(name, next).known === false){
+                console.warn(`Combination ${combo.id}: no known way from ${name} into ${next} (add a variation or hand swap)`);
             }
         });
     }
@@ -941,7 +996,7 @@ const fitPadding = () => isCompact() ? 20 : 50;
 // =====================================================================
 
 const dom = Object.fromEntries(
-    ["container","graph","cy","caption","stepHighlight","menu","menuBtn","closeBtn","classSection","showIntro","superSlot","toast","randomSection","lengthGroup","loopCombo","generateBtn","favBtn","favList",
+    ["container","graph","cy","caption","stepHighlight","menu","menuBtn","closeBtn","classSection","showIntro","superSlot","toast","randomSection","lengthGroup","loopCombo","generateBtn","favBtn","favList","shuffleBtn","replaceBtn","shuffleHint",
      "backdrop","comboList","prevBtn","nextBtn"].map(id=>[id, document.getElementById(id)])
 );
 
@@ -1744,6 +1799,7 @@ function select(selection, {updateUrl=true}={}){
     markActiveLinks();
     if(updateUrl) writeUrl(combo);
     updateFavButton();
+    updateShuffleControls();
     renderCaption();
     render();
 }
@@ -2025,10 +2081,7 @@ dom.favBtn.addEventListener("click", ()=>{
 const MIN_RANDOM = 2, MAX_RANDOM = 5;
 
 // Can move b follow move a without a hand change?
-const canFollow = (a, b) => {
-    const from = MOVE_STATES.get(b).from;
-    return MOVE_STATES.get(a).to === from || ALT_ENDINGS.some(([m,end])=>m === a && end === from);
-};
+const canFollow = (a, b) => bridgeCost(a, b) === 0;
 
 const shuffled = items => items.map(v=>[Math.random(), v]).sort((x,y)=>x[0]-y[0]).map(([,v])=>v);
 
@@ -2090,6 +2143,117 @@ function randomMoves(length, loops){
     });
 }
 
+// ---------------------------------------------------------------------
+// Shuffle Order: the current combination's moves in a different order,
+// preferring orders that link without hand changes. And: swap a hand
+// change for a real move along the same path (e.g. "swap to R", lr -> rr,
+// becomes Break Through).
+// ---------------------------------------------------------------------
+
+function orderCost(moves, loops){
+    let cost = 0;
+    for(let i = 0; i+1 < moves.length; i++) cost += bridgeCost(moves[i], moves[i+1]);
+    if(loops && moves.length > 1) cost += bridgeCost(moves[moves.length-1], moves[0]);
+    return cost;
+}
+
+function* permutations(items){
+    if(items.length <= 1){ yield items; return; }
+    for(let i = 0; i < items.length; i++){
+        const rest = [...items.slice(0,i), ...items.slice(i+1)];
+        for(const p of permutations(rest)) yield [items[i], ...p];
+    }
+}
+
+// A different order of the same moves with the fewest hand changes
+// (picked at random among the best). Exhaustive for short combinations;
+// for long ones, many randomised "link where you can" attempts.
+function shuffleOrder(moves, loops){
+    const current = moves.join(">");
+    let best = Infinity, choices = [];
+    const consider = order=>{
+        if(order.join(">") === current) return;
+        const cost = orderCost(order, loops);
+        if(cost < best){ best = cost; choices = [order]; }
+        else if(cost === best && choices.length < 500) choices.push(order);
+    };
+    if(moves.length <= 7){
+        for(const p of permutations(moves)) consider(p);
+    }else{
+        for(let attempt = 0; attempt < 3000; attempt++){
+            const left = shuffled(moves);
+            const order = [left.pop()];
+            while(left.length){
+                const last = order[order.length-1];
+                const costs = left.map(m=>bridgeCost(last, m));
+                const min = Math.min(...costs);
+                const pick = shuffled(left.filter((_,i)=>costs[i] === min))[0];
+                left.splice(left.indexOf(pick), 1);
+                order.push(pick);
+            }
+            consider(order);
+        }
+    }
+    return choices.length ? { moves:shuffled(choices)[0], cost:best } : null;
+}
+
+const shownMoves = () => MOVES
+    .filter(m=>dom.showIntro.checked || m.level !== "intromediate")
+    .map(m=>m.name);
+
+// Replace the first hand change that a real move can stand in for.
+function replaceHandChange(combo){
+    const used = new Set(combo.moves);
+    for(const item of planMoves(combo.moves, combo)){
+        if(item.kind !== "transition") continue;
+        const options = shownMoves().filter(m=>{
+            const st = MOVE_STATES.get(m);
+            return !used.has(m) && st.from === item.from && st.to === item.to;
+        });
+        if(!options.length) continue;
+        const pick = shuffled(options)[0];
+        const moves = [...combo.moves];
+        moves.splice(item.index + 1, 0, pick);
+        return { moves, replaced:item.note, with:pick };
+    }
+    return null;
+}
+
+const handChanges = combo => planMoves(combo.moves, combo).filter(x=>x.kind === "transition").length;
+const plural = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
+
+function updateShuffleControls(){
+    const combo = state.selection?.kind === "combo" ? state.selection.combo : null;
+    dom.shuffleBtn.disabled = !combo || combo.moves.length < 2;
+    dom.replaceBtn.disabled = !combo || !replaceHandChange(combo);
+    dom.shuffleHint.textContent = !combo ? "Pick a combination first."
+        : combo.moves.length < 2 ? "Needs at least 2 moves to shuffle."
+        : `Current: ${handChanges(combo) ? plural(handChanges(combo), "hand change") : "no hand changes"}.`;
+}
+
+dom.shuffleBtn.addEventListener("click", ()=>{
+    const combo = state.selection?.combo;
+    if(!combo) return;
+    const result = shuffleOrder(combo.moves, combo.loops);
+    if(!result){ showToast("There's no other order for these moves"); return; }
+    state.preview = null;
+    const shuffledCombo = { id:null, caption:"Shuffled", moves:result.moves, loops:combo.loops };
+    selectCombo(shuffledCombo);
+    const n = handChanges(shuffledCombo);
+    showToast(n ? `Shuffled: ${plural(n, "hand change")} needed` : "Shuffled: no hand changes needed");
+    closeMenu();
+});
+
+dom.replaceBtn.addEventListener("click", ()=>{
+    const combo = state.selection?.combo;
+    const result = combo && replaceHandChange(combo);
+    if(!result) return;
+    state.preview = null;
+    selectCombo({ id:null, caption:"Custom", moves:result.moves, loops:combo.loops });
+    showToast(`Replaced "${result.replaced}" with ${result.with}`);
+    closeMenu();
+});
+
 // Show/hide intromediate moves (remembered per device; shown by default).
 {
     const key = "mj-moves:show-intromediate";
@@ -2097,6 +2261,7 @@ function randomMoves(length, loops){
     applyLevelFilter();
     dom.showIntro.addEventListener("change", ()=>{
         localStorage.setItem(key, dom.showIntro.checked);
+        updateShuffleControls();
         applyLevelFilter();
         applyLayout();          // labels changed size: re-fit the graph
     });
