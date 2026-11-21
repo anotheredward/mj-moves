@@ -214,6 +214,7 @@ html, body {
     transform:translateX(-105%);
     transition:transform 0.2s ease-out;
     overflow-y:auto;
+    overscroll-behavior:contain;    /* scrolling past the end stays in the menu */
     padding:15px;
     padding-top:calc(15px + env(safe-area-inset-top));
     padding-bottom:calc(15px + env(safe-area-inset-bottom));
@@ -1181,7 +1182,8 @@ body.menu-open #backdrop{
     }
 
     #menu{
-        position:static;
+        position:relative;      /* holds the hidden toggle input, which would
+                                   otherwise make the whole page scroll */
         order:-1;
         flex:0 0 320px;
         transform:none;
