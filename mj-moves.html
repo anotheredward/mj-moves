@@ -1755,7 +1755,7 @@ button.cal-day{
     background:linear-gradient(110deg, #d9480f, #c2255c 45%, #862e9c 75%, #d9480f);
     background-size:220% 100%;
     box-shadow:0 3px 12px rgba(194,37,92,0.35);
-    animation:fx-glow 7s ease-in-out infinite alternate, fx-wiggle 6.5s ease-in-out infinite;
+    animation:fx-wiggle 6.5s ease-in-out infinite;
 }
 
 .stats-open.fancy:hover{
@@ -1768,12 +1768,12 @@ button.cal-day{
     content:"";
     position:absolute;
     top:-60%;
-    left:-20%;
+    left:0;
     width:14px;
     height:220%;
     background:linear-gradient(transparent, rgba(255,255,255,0.75), transparent);
-    transform:rotate(22deg);
-    animation:fx-shine 3.4s ease-in-out infinite;
+    transform:translateX(-60px) rotate(22deg);
+    animation:fx-shine 3.4s ease-in-out infinite;      /* moved, not laid out again */
     pointer-events:none;
 }
 
@@ -1784,8 +1784,8 @@ button.cal-day{
 }
 
 @keyframes fx-shine{
-    0%       { left:-20%; }
-    55%, 100%{ left:120%; }
+    0%       { transform:translateX(-60px) rotate(22deg); }
+    55%, 100%{ transform:translateX(360px) rotate(22deg); }
 }
 
 @keyframes fx-glow{
@@ -1836,6 +1836,13 @@ button.cal-day{
 @keyframes fx-pop{
     from{ transform:rotate(var(--a)) translateX(0) scale(1.2); opacity:1; }
     to  { transform:rotate(var(--a)) translateX(var(--r, 18px)) scale(0.3); opacity:0; }
+}
+
+/* paused while a full-page view covers it */
+body:has(.overlay-page:not([hidden])) .stats-open.fancy,
+body:has(.overlay-page:not([hidden])) .stats-open.fancy::before,
+body:has(.overlay-page:not([hidden])) .stats-open.fancy::after{
+    animation-play-state:paused;
 }
 
 @media (prefers-reduced-motion:reduce){
@@ -2334,7 +2341,7 @@ button.cal-day{
     border-radius:50%;
 }
 
-.burst-layer .spark{
+.burst-layer .burst-emoji{
     filter:drop-shadow(0 0 6px rgba(255,225,140,0.95)) saturate(1.4);
 }
 
@@ -2390,34 +2397,34 @@ button.cal-day{
     z-index:2;
 }
 
+/* soft gradients (no blur filter or blending: those are costly to redraw);
+   only moved, which the graphics chip does cheaply */
 .aurora{
     position:absolute;
     width:120vmax;
     height:60vmax;
-    border-radius:50%;
-    filter:blur(60px);
-    opacity:0.45;
-    mix-blend-mode:screen;
+    opacity:0.4;
+    will-change:transform;
 }
 
 .aurora.a1{
     left:-30vmax;
     top:-25vmax;
-    background:radial-gradient(closest-side, rgba(80,255,190,0.7), transparent);
+    background:radial-gradient(closest-side, rgba(80,255,190,0.6), rgba(80,255,190,0.25) 45%, transparent);
     animation:aurora-1 22s ease-in-out infinite alternate;
 }
 
 .aurora.a2{
     right:-40vmax;
     top:-10vmax;
-    background:radial-gradient(closest-side, rgba(150,110,255,0.75), transparent);
+    background:radial-gradient(closest-side, rgba(150,110,255,0.65), rgba(150,110,255,0.25) 45%, transparent);
     animation:aurora-2 28s ease-in-out infinite alternate;
 }
 
 .aurora.a3{
     left:-10vmax;
     top:15vmax;
-    background:radial-gradient(closest-side, rgba(60,170,255,0.55), transparent);
+    background:radial-gradient(closest-side, rgba(60,170,255,0.5), rgba(60,170,255,0.2) 45%, transparent);
     animation:aurora-3 34s ease-in-out infinite alternate;
 }
 
@@ -2432,65 +2439,20 @@ button.cal-day{
 }
 
 @keyframes aurora-3{
-    from{ transform:translate(0, 0) rotate(0deg); filter:blur(60px) hue-rotate(0deg); }
-    to  { transform:translate(10vmax, -14vmax) rotate(15deg); filter:blur(60px) hue-rotate(40deg); }
+    from{ transform:translate(0, 0) rotate(0deg); }
+    to  { transform:translate(10vmax, -14vmax) rotate(15deg); }
 }
 
-/* a big wheel centred above the page; only the bottom of it shows, so
-   its stars sweep across the top in arcs */
-.star-wheel{                    /* centre 60vmax above the page, radius 85vmax */
+/* stars: drawn on one canvas (see makeStars) */
+.star-canvas{
     position:absolute;
-    left:50%;
-    top:-145vmax;
-    width:170vmax;
-    height:170vmax;
-    margin-left:-85vmax;
-    animation:star-turn 300s linear infinite;
-}
-
-.star-wheel i{
-    position:absolute;
-    left:50%;
-    top:50%;
-    width:var(--s);
-    height:var(--s);
-    border-radius:50%;
-    background:white;
-    box-shadow:0 0 6px rgba(255,255,255,0.8);
-    transform:rotate(var(--a)) translateY(var(--r));
-    opacity:var(--o);
-}
-
-/* some stars leave a faint trail behind them as the sky turns (the
-   wheel turns clockwise, so "behind" is along the star's +x) */
-.star-wheel i.trail::after{
-    content:"";
-    position:absolute;
-    left:50%;
-    top:50%;
-    width:var(--l);
-    height:1px;
-    margin-top:-0.5px;
-    background:linear-gradient(to right, rgba(255,255,255,0.55), transparent);
-    border-radius:1px;
-}
-
-.star-wheel i.tw{
-    animation:twinkle var(--t) ease-in-out infinite alternate;
-    animation-delay:var(--d);
-}
-
-@keyframes star-turn{
-    to{ transform:rotate(360deg); }
-}
-
-@keyframes twinkle{
-    from{ opacity:0.25; }
-    to  { opacity:0.9; }
+    inset:0;
+    width:100%;
+    height:100%;
 }
 
 @media (prefers-reduced-motion:reduce){
-    .aurora, .star-wheel, .star-wheel i{ animation:none; }
+    .aurora{ animation:none; }
 }
 
 .secret-intro{
@@ -2938,7 +2900,7 @@ button.cal-day{
 <div id="secretPage" class="overlay-page secret-page" role="dialog" aria-modal="true" aria-labelledby="secretTitle" hidden>
 <div class="secret-sky" aria-hidden="true">
 <div class="aurora a1"></div><div class="aurora a2"></div><div class="aurora a3"></div>
-<div class="star-wheel" id="starWheel"></div>
+<canvas class="star-canvas" id="starCanvas"></canvas>
 </div>
 <header class="overlay-header">
 <h2 id="secretTitle">🔐 Secret dance diary</h2>
@@ -3911,7 +3873,7 @@ function labelBoxes(){
 }
 
 function startPulse(steps, owner){
-    Object.assign(pulse, { steps, owner, path:null, start:performance.now(), lap:-1 });
+    Object.assign(pulse, { steps, owner, path:null, boxes:null, start:performance.now(), lap:-1 });
     setActiveStep(-1, true);
     if(!steps.length || REDUCED_MOTION.matches){
         pulseDots.style("opacity", 0);
@@ -3949,8 +3911,10 @@ function lightNodes(head){
     }
     const base = hexRgb(COLOR.nodeBorder), blue = hexRgb(COLOR.lead);
     cy.batch(()=>cy.nodes(".state").forEach(node=>{
-        const k = glow.get(node.id()) ?? 0;
-        if(Math.abs((node.scratch("_light") ?? 0) - k) < 0.01) return;   // unchanged
+        // in twelfths: restyling a node is costly, and a dozen steps per line
+        // still fades smoothly
+        const k = Math.round((glow.get(node.id()) ?? 0) * 12) / 12;
+        if((node.scratch("_light") ?? 0) === k) return;                   // unchanged
         node.scratch("_light", k);
         if(k === 0){ node.removeStyle("border-width border-color"); return; }
         const c = base.map((v, i)=>Math.round(v + (blue[i] - v) * k));
@@ -3976,6 +3940,7 @@ function pulseTick(now){
         if(lap !== pulse.lap){
             pulse.lap = lap;
             pulse.path = buildPath();     // pick up any relayout each lap
+            pulse.boxes = null;
         }
         const head = (elapsed % lapLength) / travel * total;
         let step = -1;
@@ -3984,7 +3949,8 @@ function pulseTick(now){
         updateStepHighlight();            // once per frame: follows the comet and zoom/pan
         lightNodes(head);
 
-        const boxes = labelBoxes();
+        // label boxes are in graph coordinates: measured once a lap, not every frame
+        const boxes = pulse.boxes ??= labelBoxes();
         cy.batch(()=>pulseDots.forEach((dot,i)=>{
             const d = head - i*PULSE.spacing;
             if(d < 0 || d > total){ dot.style("opacity", 0); return; }
@@ -6017,6 +5983,7 @@ document.addEventListener("keydown", e=>{
     const pick = list => list[Math.floor(Math.random() * list.length)];
     const visible = ()=>{
         if(document.hidden || REDUCED_MOTION.matches) return false;
+        if(document.querySelector(".overlay-page:not([hidden])")) return false;     // covered
         const r = dom.statsBtn.getBoundingClientRect();
         return r.width > 0 && r.right > 0 && r.left < innerWidth && r.bottom > 0 && r.top < innerHeight;
     };
@@ -6705,29 +6672,77 @@ function secretFoot(){
         : "🤫 Kept on this device only";
 }
 
-// Stars on the wheel: in a band from its rim (the top of the page) down to
-// about halfway down the page, thinning and fading further down; some
-// twinkle, some leave trails. Made each time the page opens, to fit it.
+// Stars turning slowly about a pole above the page, in a band from the
+// top down to about halfway, thinning and fading further down; some
+// twinkle, some leave trails. Drawn on one canvas, only the stars on
+// screen, about 30 times a second, and only while the diary is open.
+const sky = { stars:[], frame:null, last:0, start:0 };
+
 function makeStars(){
-    const wheel = document.getElementById("starWheel");
-    const vmax = Math.max(innerWidth, innerHeight) / 100;           // px per vmax
-    const band = 0.5 * innerHeight / vmax;                          // half the page, in vmax
-    const stars = [];
-    for(let i = 0; i < 520; i++){
-        const star = document.createElement("i");
-        const depth = Math.pow(Math.random(), 1.35);                // more near the top
-        const r = 60 + depth * band;                                // 60vmax from the pole = top of the page
-        const cls = [];
-        if(i % 3 === 0) cls.push("tw");                             // a third twinkle
-        if(i % 6 === 1) cls.push("trail");                          // a sixth have trails
-        star.className = cls.join(" ");
-        star.style.cssText = `--a:${(Math.random()*360).toFixed(2)}deg;--r:${r.toFixed(2)}vmax;` +
-            `--s:${(1 + Math.random()*1.6).toFixed(1)}px;--o:${(0.9 - depth*0.65).toFixed(2)};` +
-            `--l:${Math.round(14 + Math.random()*50)}px;--t:${(2 + Math.random()*4).toFixed(1)}s;--d:${(-Math.random()*6).toFixed(1)}s`;
-        stars.push(star);
-    }
-    wheel.replaceChildren(...stars);
+    const vmax = Math.max(innerWidth, innerHeight) / 100;
+    const band = 0.5 * innerHeight;                                 // px: half the page
+    sky.pole = { x:innerWidth/2, y:-60*vmax, r0:60*vmax };          // the top of the page is r0 from the pole
+    sky.stars = Array.from({length:520}, (_, i)=>{
+        const depth = Math.pow(Math.random(), 1.35);
+        return {
+            a:Math.random() * Math.PI * 2,
+            r:sky.pole.r0 + depth * band,
+            size:(1 + Math.random()*1.6) / 2,
+            o:0.9 - depth*0.65,
+            tw:i % 3 === 0 ? { speed:1 + Math.random()*2.5, phase:Math.random()*6.3 } : null,
+            trail:i % 6 === 1 ? 14 + Math.random()*50 : 0
+        };
+    });
+    sky.start = performance.now();
+    if(!sky.frame) sky.frame = requestAnimationFrame(drawSky);
 }
+
+function drawSky(now){
+    sky.frame = null;
+    if(dom.secretPage.hidden) return;                               // stop when closed
+    sky.frame = requestAnimationFrame(drawSky);
+    if(now - sky.last < 33) return;                                 // ~30 frames a second is plenty
+    sky.last = now;
+    const canvas = document.getElementById("starCanvas");
+    const dpr = Math.min(devicePixelRatio || 1, 2);
+    const w = innerWidth, h = innerHeight;
+    if(canvas.width !== Math.round(w*dpr) || canvas.height !== Math.round(h*dpr)){
+        canvas.width = Math.round(w*dpr);
+        canvas.height = Math.round(h*dpr);
+    }
+    const ctx = canvas.getContext("2d");
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, w, h);
+    const t = (now - sky.start) / 1000;
+    const turn = REDUCED_MOTION.matches ? 0 : t / 300 * Math.PI * 2;  // a turn every 5 minutes
+    const {x:px, y:py} = sky.pole;
+    for(const st of sky.stars){
+        const ang = st.a + turn;
+        const x = px + Math.sin(ang) * st.r, y = py + Math.cos(ang) * st.r;
+        if(x < -70 || x > w + 70 || y < -4 || y > h) continue;      // off screen
+        let o = st.o;
+        if(st.tw && !REDUCED_MOTION.matches) o *= 0.55 + 0.45 * Math.sin(t * st.tw.speed + st.tw.phase);
+        if(st.trail){
+            // behind the star along its circle (the sky turns this way)
+            const back = st.trail / st.r;
+            const g = ctx.createLinearGradient(x, y, px + Math.sin(ang - back) * st.r, py + Math.cos(ang - back) * st.r);
+            g.addColorStop(0, `rgba(255,255,255,${(o*0.6).toFixed(2)})`);
+            g.addColorStop(1, "rgba(255,255,255,0)");
+            ctx.strokeStyle = g;
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.arc(px, py, st.r, Math.PI/2 - ang, Math.PI/2 - ang + back);
+            ctx.stroke();
+        }
+        ctx.globalAlpha = Math.max(0, o);
+        ctx.fillStyle = "white";
+        ctx.beginPath();
+        ctx.arc(x, y, st.size + 0.4, 0, Math.PI*2);
+        ctx.fill();
+        ctx.globalAlpha = 1;
+    }
+}
+window.addEventListener("resize", ()=>{ if(!dom.secretPage.hidden) makeStars(); });
 
 // The lock bursts into sparkles, over the page that opens.
 function secretBurst(fromEl){
@@ -6752,7 +6767,7 @@ function secretBurst(fromEl){
     // emoji sparkles and coloured dots flying out, falling a little
     for(let i = 0; i < 46; i++){
         const emoji = i < 16;
-        const p = el("span", emoji ? {className:"spark", textContent:SPARKS[i % SPARKS.length]} : {className:"dot"});
+        const p = el("span", emoji ? {className:"burst-emoji", textContent:SPARKS[i % SPARKS.length]} : {className:"dot"});
         const size = emoji ? rand(14, 30) : rand(4, 9);
         if(emoji) p.style.fontSize = `${size}px`;
         else Object.assign(p.style, { width:`${size}px`, height:`${size}px`, background:COLORS[i % COLORS.length],
