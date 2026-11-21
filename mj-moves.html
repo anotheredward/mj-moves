@@ -326,6 +326,62 @@ body.menu-open #backdrop{
     color:#666;
 }
 
+.toggle{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    min-height:44px;
+    margin-top:8px;
+    padding-top:8px;
+    border-top:1px solid var(--rule);
+    font-size:15px;
+    cursor:pointer;
+    user-select:none;
+}
+
+.toggle input{
+    position:absolute;
+    opacity:0;
+    width:1px;
+    height:1px;
+}
+
+.toggle .switch{
+    position:relative;
+    flex:none;
+    width:40px;
+    height:24px;
+    border-radius:12px;
+    background:#c8c8c8;
+    transition:background-color 0.15s;
+}
+
+.toggle .switch::after{
+    content:"";
+    position:absolute;
+    top:3px;
+    left:3px;
+    width:18px;
+    height:18px;
+    border-radius:50%;
+    background:white;
+    box-shadow:0 1px 2px rgba(0,0,0,0.3);
+    transition:transform 0.15s;
+}
+
+.toggle input:checked + .switch{
+    background:var(--accent);
+}
+
+.toggle input:checked + .switch::after{
+    transform:translateX(16px);
+}
+
+.toggle input:focus-visible + .switch{
+    outline:2px solid var(--accent-text);
+    outline-offset:2px;
+}
+
 /* Wide screens: the combinations are always on screen in a sidebar, so
    there's no menu button, close button or dimmed backdrop. */
 @media (min-width:1000px) and (min-height:501px){
@@ -393,6 +449,12 @@ body.menu-open #backdrop{
 </details>
 
 <p class="hint">Tap on an empty space to clear the combination.</p>
+
+<label class="toggle">
+<input type="checkbox" id="showIntro" checked>
+<span class="switch" aria-hidden="true"></span>
+Show intromediate moves
+</label>
 </nav>
 
 <script>
@@ -402,36 +464,38 @@ body.menu-open #backdrop{
 // Data
 // =====================================================================
 
-// [move, start position, end position]
+// Every move: where the hands start and finish, and its level. The 22
+// beginner moves are the beginners block; the rest are intromediate.
+// (Objects, so more details - descriptions, counts - can be added later.)
 const MOVES = [
-["Accordion","rr","rr"],
-["Loop Throughs","bh","bh"],
-["Back Pass","rr","lr"],
-["Manhattan","lr","lr"],
-["Basket","bh","lr"],
-["New Yorker","lr","lr"],
-["Block & Turn","rr","rr"],
-["Outside Turn","lr","lr"],
-["Break Through","lr","rr"],
-["Short First Move","lr","lr"],
-["Catapult","rr","lr"],
-["Shoulder Block","rr","lr"],
-["Figure Of 8","lr","rr"],
-["Squeezebox","bh","lr"],
-["Hatchback","lr","lr"],
-["Step Across","lr","lr"],
-["Hook Turn","rr","lr"],
-["Travelling Return","lr","lr"],
-["Key Turn","rr","lr"],
-["Wurlitzer","lr","lr"],
-["Left Side Change","lr","rr"],
-["Yoyo","rr","rr"],
-["Shoulder Wrap","rr","lr"],
-["Comb","rr","rr"],
-["Slide Break","bh","rr"],
-["First Move","lr","lr"],
-["Wrap & Throw","rl","lr"],
-["Short Manhattan","lr","lr"]
+{ name:"Accordion",         from:"rr", to:"rr", level:"beginner" },
+{ name:"Loop Throughs",     from:"bh", to:"bh", level:"beginner" },
+{ name:"Back Pass",         from:"rr", to:"lr", level:"beginner" },
+{ name:"Manhattan",         from:"lr", to:"lr", level:"beginner" },
+{ name:"Basket",            from:"bh", to:"lr", level:"beginner" },
+{ name:"New Yorker",        from:"lr", to:"lr", level:"beginner" },
+{ name:"Block & Turn",      from:"rr", to:"rr", level:"beginner" },
+{ name:"Outside Turn",      from:"lr", to:"lr", level:"beginner" },
+{ name:"Break Through",     from:"lr", to:"rr", level:"beginner" },
+{ name:"Short First Move",  from:"lr", to:"lr", level:"beginner" },
+{ name:"Catapult",          from:"rr", to:"lr", level:"beginner" },
+{ name:"Shoulder Block",    from:"rr", to:"lr", level:"beginner" },
+{ name:"Figure Of 8",       from:"lr", to:"rr", level:"beginner" },
+{ name:"Squeezebox",        from:"bh", to:"lr", level:"beginner" },
+{ name:"Hatchback",         from:"lr", to:"lr", level:"beginner" },
+{ name:"Step Across",       from:"lr", to:"lr", level:"beginner" },
+{ name:"Hook Turn",         from:"rr", to:"lr", level:"beginner" },
+{ name:"Travelling Return", from:"lr", to:"lr", level:"intromediate" },
+{ name:"Key Turn",          from:"rr", to:"lr", level:"beginner" },
+{ name:"Wurlitzer",         from:"lr", to:"lr", level:"beginner" },
+{ name:"Left Side Change",  from:"lr", to:"rr", level:"beginner" },
+{ name:"Yoyo",              from:"rr", to:"rr", level:"beginner" },
+{ name:"Shoulder Wrap",     from:"rr", to:"lr", level:"intromediate" },
+{ name:"Comb",              from:"rr", to:"rr", level:"intromediate" },
+{ name:"Slide Break",       from:"bh", to:"rr", level:"intromediate" },
+{ name:"First Move",        from:"lr", to:"lr", level:"beginner" },
+{ name:"Wrap & Throw",      from:"rl", to:"lr", level:"intromediate" },
+{ name:"Short Manhattan",   from:"lr", to:"lr", level:"intromediate" }
 ];
 
 // Hand changes that let one move flow into the next when the first ends in
@@ -467,7 +531,8 @@ const COMBINATIONS = [
 ];
 
 const STATES = ["rr","lr","rl","bh"];
-const MOVE_STATES = new Map(MOVES.map(([name,from,to])=>[name, {from, to}]));
+const MOVE_STATES = new Map(MOVES.map(m=>[m.name, m]));      // name -> {name, from, to, level}
+const LEVELS = ["beginner", "intromediate"];
 const TRANSITION_NOTES = new Map(HAND_TRANSITIONS.map(([a,b,note])=>[`${a} > ${b}`, note]));
 
 // Does going from move a into move b need a hand change?
@@ -502,6 +567,9 @@ function planMoves(moves){
 
 // Catch typos early: a misspelt move would otherwise be skipped silently.
 (function validateData(){
+    for(const m of MOVES){
+        if(!LEVELS.includes(m.level)) console.warn(`Move "${m.name}": unknown level "${m.level}"`);
+    }
     for(const [a,b] of HAND_TRANSITIONS){
         if(!MOVE_STATES.has(a) || !MOVE_STATES.has(b)) console.warn(`Hand transition: unknown move in "${a} > ${b}"`);
         else if(!needsHandChange(a, b)) console.warn(`Hand transition "${a} > ${b}" isn't needed: the moves already link`);
@@ -554,7 +622,7 @@ const fitPadding = () => isCompact() ? 20 : 50;
 // =====================================================================
 
 const dom = Object.fromEntries(
-    ["container","graph","cy","caption","stepHighlight","menu","menuBtn","closeBtn","classSection",
+    ["container","graph","cy","caption","stepHighlight","menu","menuBtn","closeBtn","classSection","showIntro",
      "backdrop","comboList","prevBtn","nextBtn"].map(id=>[id, document.getElementById(id)])
 );
 
@@ -646,7 +714,7 @@ const nodeIcon = (()=>{
 
 function buildElements(){
     const groups = new Map();   // "from|to" -> {from, to, moves:[]}
-    for(const [name,from,to] of MOVES){
+    for(const {name, from, to} of MOVES){
         const key = `${from}|${to}`;
         if(!groups.has(key)) groups.set(key, {from, to, moves:[]});
         groups.get(key).moves.push(name);
@@ -656,7 +724,8 @@ function buildElements(){
         const label = moves.join("\n");
         return { data:{
             id:`e:${key}`, source:from, target:to,
-            moves, count:moves.length,
+            allMoves:moves,                    // every move on this line
+            moves, count:moves.length,         // the ones shown (see applyLevelFilter)
             fullLabel:label, edgeLabel:label,
             // a reverse edge exists: bow the pair apart (amount set per layout)
             hasReverse: from !== to && groups.has(`${to}|${from}`),
@@ -789,6 +858,8 @@ const cy = cytoscape({
             "font-style":"italic",
             "font-weight":"normal"
         }},
+        { selector:".filtered", style:{ "display":"none" }},
+        { selector:"edge.filtered.highlight, node.filtered.in-use", style:{ "display":"element" }},
         { selector:"node.pulse", style:{
             "shape":"ellipse",
             "width":"data(size)", "height":"data(size)",
@@ -898,9 +969,27 @@ function applyLayout(){
 // Highlighting
 // =====================================================================
 
+// Show or hide the intromediate moves: each line keeps only the moves
+// shown; a line with none left is hidden, and so is a hand position with
+// no lines left (unless the highlighted combination uses them).
+function applyLevelFilter(){
+    const showIntro = dom.showIntro.checked;
+    cy.edges().not(".transition").forEach(edge=>{
+        const moves = edge.data("allMoves")
+            .filter(name=>showIntro || MOVE_STATES.get(name).level !== "intromediate");
+        const label = moves.join("\n");
+        edge.data({ moves, count:Math.max(moves.length, 1), fullLabel:label, edgeLabel:label });
+        edge.toggleClass("filtered", moves.length === 0);
+    });
+    // a hand position with no lines left is hidden too
+    cy.nodes(".state").forEach(node=>{
+        node.toggleClass("filtered", node.connectedEdges().not(".filtered, .transition").length === 0);
+    });
+}
+
 function resetGraph(){
     cy.edges(".transition").remove();
-    cy.elements().removeClass("dim highlight");
+    cy.elements().removeClass("dim highlight in-use");
     cy.edges().forEach(edge=>edge.data("edgeLabel", edge.data("fullLabel")));
 }
 
@@ -995,6 +1084,8 @@ function render(){
     resetGraph();
     let steps = [];
     if(view?.kind === "combo") steps = showCombo(view.combo);
+    // positions the combination passes through stay visible even if hidden
+    cy.edges(".highlight").connectedNodes().addClass("in-use");
     updateLabels();
     if(baseViewport) fitView();
     startPulse(steps, view);
@@ -1243,7 +1334,7 @@ function renderCaption(){
 // ---------------------------------------------------------------------
 
 const slug = name => name.toLowerCase().replace(/&/g, "and").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
-const MOVE_BY_SLUG = new Map(MOVES.map(([name])=>[slug(name), name]));
+const MOVE_BY_SLUG = new Map(MOVES.map(({name})=>[slug(name), name]));
 
 // The class combination with exactly these moves, if there is one.
 const classCombo = moves => COMBINATIONS.find(c=>sameMoves(c.moves, moves));
@@ -1357,6 +1448,18 @@ function buildMenu(){
 // =====================================================================
 
 buildMenu();
+
+// Show/hide intromediate moves (remembered per device; shown by default).
+{
+    const key = "mj-moves:show-intromediate";
+    dom.showIntro.checked = localStorage.getItem(key) !== "false";
+    applyLevelFilter();
+    dom.showIntro.addEventListener("change", ()=>{
+        localStorage.setItem(key, dom.showIntro.checked);
+        applyLevelFilter();
+        applyLayout();          // labels changed size: re-fit the graph
+    });
+}
 
 // Remember whether each foldable menu section was left open or folded.
 for(const section of dom.menu.querySelectorAll("details.menu-section")){
