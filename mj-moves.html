@@ -293,7 +293,6 @@ body.menu-open #backdrop{
     color:inherit;
     background:none;
     padding:10px 8px;
-    margin-bottom:6px;
     border-radius:6px;
     cursor:pointer;
     border:2px solid transparent;
@@ -310,12 +309,116 @@ body.menu-open #backdrop{
     border-color:var(--accent);
 }
 
+/* A menu row: the combination's link, then its favourite/done buttons */
+.combo-row{
+    display:flex;
+    align-items:center;
+    gap:2px;
+    margin-bottom:6px;
+}
+
+.combo-row .combo{
+    flex:1;
+    min-width:0;
+}
+
+.combo-actions{
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    flex:none;
+}
+
+.star,
+.tick{
+    min-width:40px;
+    min-height:34px;
+    padding:0 4px;
+    border:none;
+    border-radius:8px;
+    background:none;
+    color:#b5b5b5;
+    font:inherit;
+    cursor:pointer;
+    -webkit-tap-highlight-color:transparent;
+}
+
+.star:hover,
+.tick:hover{
+    background:#f0f0f0;
+}
+
+.star{
+    font-size:20px;
+    line-height:1;
+}
+
+.star.on{
+    color:var(--accent);
+}
+
+.tick{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:2px;
+    font-size:14px;
+}
+
+.tick.on{
+    color:var(--accent-text);
+    font-weight:bold;
+}
+
+/* "Done 4 times · Undo" message */
+#toast{
+    position:fixed;
+    left:50%;
+    bottom:calc(16px + env(safe-area-inset-bottom));
+    transform:translate(-50%, 20px);
+    display:flex;
+    align-items:center;
+    gap:12px;
+    max-width:calc(100vw - 32px);
+    padding:8px 8px 8px 16px;
+    border-radius:10px;
+    background:#2b2b2b;
+    color:white;
+    font-size:15px;
+    box-shadow:0 4px 16px rgba(0,0,0,0.25);
+    opacity:0;
+    pointer-events:none;
+    transition:opacity 0.2s, transform 0.2s;
+    z-index:20;
+}
+
+#toast.show{
+    opacity:1;
+    transform:translate(-50%, 0);
+    pointer-events:auto;
+}
+
+#toast button{
+    min-height:36px;
+    padding:0 12px;
+    border:none;
+    border-radius:8px;
+    background:none;
+    color:var(--accent);
+    font:inherit;
+    font-weight:bold;
+    cursor:pointer;
+}
+
 /* The Beginner's Super Combo: a card of its own below the class list */
+.combo-row.super-row{
+    margin:10px 0 12px;
+}
+
 .combo.super{
     flex-direction:column;
     align-items:flex-start;
     gap:2px;
-    margin:10px 0 12px;
     border-color:var(--rule);
 }
 
@@ -464,6 +567,8 @@ body.menu-open #backdrop{
 </div>
 
 <div id="backdrop"></div>
+
+<div id="toast" role="status" aria-live="polite"></div>
 
 <nav id="menu" aria-label="Menu">
 <div id="menuTop"><button id="closeBtn" aria-label="Close menu">✕</button></div>
@@ -666,7 +771,7 @@ const fitPadding = () => isCompact() ? 20 : 50;
 // =====================================================================
 
 const dom = Object.fromEntries(
-    ["container","graph","cy","caption","stepHighlight","menu","menuBtn","closeBtn","classSection","showIntro","superSlot",
+    ["container","graph","cy","caption","stepHighlight","menu","menuBtn","closeBtn","classSection","showIntro","superSlot","toast",
      "backdrop","comboList","prevBtn","nextBtn"].map(id=>[id, document.getElementById(id)])
 );
 
@@ -1504,6 +1609,78 @@ function setPreview(preview){
     render();
 }
 
+// ---------------------------------------------------------------------
+// Favourites and "times done in class", saved on this device. Keyed by the
+// moves (not the number), so they survive the class list being renumbered.
+// ---------------------------------------------------------------------
+
+const STATS_KEY = "mj-moves:combo-stats";
+const comboKey = combo => combo.moves.map(slug).join(",");
+const comboName = combo => combo.title ?? `Combination ${combo.id}`;
+const stats = (()=>{
+    try{ return JSON.parse(localStorage.getItem(STATS_KEY)) || {}; }
+    catch{ return {}; }
+})();
+const statOf = combo => ({ fav:false, done:0, ...stats[comboKey(combo)] });
+const statButtons = new Map();   // combo -> {star, tick}
+
+function setStat(combo, change){
+    const key = comboKey(combo);
+    const value = { ...statOf(combo), ...change };
+    if(!value.fav && !value.done) delete stats[key];
+    else stats[key] = value;
+    try{ localStorage.setItem(STATS_KEY, JSON.stringify(stats)); }
+    catch{ /* storage full or blocked: keep working for this visit */ }
+    refreshStats(combo);
+}
+
+function refreshStats(combo){
+    const buttons = statButtons.get(combo);
+    if(!buttons) return;
+    const {fav, done} = statOf(combo);
+    const {star, tick} = buttons;
+    star.textContent = fav ? "★" : "☆";
+    star.classList.toggle("on", fav);
+    star.setAttribute("aria-pressed", fav);
+    star.setAttribute("aria-label", `${comboName(combo)}: ${fav ? "remove from" : "add to"} favourites`);
+    tick.querySelector(".count").textContent = done || "";
+    tick.classList.toggle("on", done > 0);
+    tick.setAttribute("aria-label", `${comboName(combo)}: done in class ${done} time${done === 1 ? "" : "s"}. Add one`);
+}
+
+function statControls(combo){
+    const star = el("button", {type:"button", className:"star"});
+    star.addEventListener("click", ()=>setStat(combo, {fav:!statOf(combo).fav}));
+    const tick = el("button", {type:"button", className:"tick"},
+        el("span", {className:"mark", textContent:"✓"}), el("span", {className:"count"}));
+    tick.addEventListener("click", ()=>{
+        const before = statOf(combo).done;
+        setStat(combo, {done:before + 1});
+        showToast(`${comboName(combo)}: done ${before + 1} time${before + 1 === 1 ? "" : "s"}`,
+                  ()=>setStat(combo, {done:before}));
+    });
+    statButtons.set(combo, {star, tick});
+    refreshStats(combo);
+    return el("div", {className:"combo-actions"}, star, tick);
+}
+
+let toastTimer;
+function showToast(message, undo){
+    dom.toast.replaceChildren(el("span", {textContent:message}));
+    if(undo){
+        const btn = el("button", {type:"button", textContent:"Undo"});
+        btn.addEventListener("click", ()=>{ undo(); hideToast(); });
+        dom.toast.append(btn);
+    }
+    dom.toast.classList.add("show");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(hideToast, 4000);
+}
+
+function hideToast(){
+    dom.toast.classList.remove("show");
+}
+
 // A menu entry for a combination: a real link, so "open in new tab" and
 // "copy link" work, that selects it in place when clicked.
 function comboLink(combo, ...content){
@@ -1532,14 +1709,14 @@ function buildMenu(){
         el("span", {className:"super-sub", textContent:`Every beginner move · ${SUPER_COMBO.moves.length} moves`}));
     superLink.classList.add("super");
     superLink.setAttribute("aria-label", `${SUPER_COMBO.title}: every beginner move, ${SUPER_COMBO.moves.length} moves`);
-    dom.superSlot.append(superLink);
+    dom.superSlot.append(el("div", {className:"combo-row super-row"}, superLink, statControls(SUPER_COMBO)));
 
     for(const combo of COMBINATIONS){
         const btn = comboLink(combo,
             el("span", {className:"combo-num", textContent:`${combo.id}`}),
             el("span", {className:"combo-moves"}, ...sequenceNodes(combo)));
         btn.setAttribute("aria-label", `Combination ${combo.id}: ${combo.moves.join(", ")}`);
-        dom.comboList.append(btn);
+        dom.comboList.append(el("div", {className:"combo-row"}, btn, statControls(combo)));
     }
 }
 
