@@ -2297,7 +2297,8 @@ button.cal-day{
     padding:4px 8px;
     border:none;
     background:none;
-    font-size:13px;
+    font-size:26px;
+    line-height:1;
     opacity:0.18;
     filter:grayscale(1);
     cursor:pointer;
@@ -2309,6 +2310,32 @@ button.cal-day{
     opacity:1;
     filter:none;
     transform:scale(1.3) rotate(-8deg);
+}
+
+/* the burst when the lock is opened: drawn above everything, including
+   the Secret Notes page as it opens */
+.burst-layer{
+    position:fixed;
+    inset:0;
+    z-index:100;
+    pointer-events:none;
+    overflow:hidden;
+}
+
+.burst-layer span{
+    position:absolute;
+    left:0;
+    top:0;
+    line-height:1;
+    will-change:transform, opacity;
+}
+
+.burst-layer .dot{
+    border-radius:50%;
+}
+
+.burst-layer .spark{
+    filter:drop-shadow(0 0 6px rgba(255,225,140,0.95)) saturate(1.4);
 }
 
 .secret-page{
@@ -2325,6 +2352,17 @@ button.cal-day{
 .secret-page .overlay-close{
     color:#f3e9ff;
     font-size:24px;
+}
+
+.secret-page .overlay-close.locking{
+    animation:lock-snap 0.45s ease-out;
+}
+
+@keyframes lock-snap{
+    0%  { transform:scale(1); }
+    35% { transform:scale(1.35) rotate(-10deg); }
+    60% { transform:scale(0.9) rotate(6deg); }
+    100%{ transform:scale(1); }
 }
 
 .secret-page .overlay-close:hover{
@@ -2421,6 +2459,20 @@ button.cal-day{
     box-shadow:0 0 6px rgba(255,255,255,0.8);
     transform:rotate(var(--a)) translateY(var(--r));
     opacity:var(--o);
+}
+
+/* some stars leave a faint trail behind them as the sky turns (the
+   wheel turns clockwise, so "behind" is along the star's +x) */
+.star-wheel i.trail::after{
+    content:"";
+    position:absolute;
+    left:50%;
+    top:50%;
+    width:var(--l);
+    height:1px;
+    margin-top:-0.5px;
+    background:linear-gradient(to right, rgba(255,255,255,0.55), transparent);
+    border-radius:1px;
 }
 
 .star-wheel i.tw{
@@ -2889,8 +2941,8 @@ button.cal-day{
 <div class="star-wheel" id="starWheel"></div>
 </div>
 <header class="overlay-header">
-<h2 id="secretTitle">🔐 Secret Notes</h2>
-<button type="button" id="secretClose" class="overlay-close" aria-label="Lock and close">🔒</button>
+<h2 id="secretTitle">🔐 Secret dance diary</h2>
+<button type="button" id="secretClose" class="overlay-close" aria-label="Lock and close">🔓</button>
 </header>
 <div class="practice-body">
 <p class="secret-intro">📔🗝️<br>Write your hopes and dreams here, stored on your device, secret to only you...</p>
@@ -3003,7 +3055,7 @@ Backup &amp; restore
 </button>
 
 <p class="credit"><a href="https://fevah.dance/" target="_blank" rel="noopener">Unofficially inspired by Fevah Modern Jive</a></p>
-<button type="button" id="secretBtn" class="secret-btn" aria-label="Secret Notes" title="Nothing to see here">🔐</button>
+<button type="button" id="secretBtn" class="secret-btn" aria-label="Secret dance diary" title="Nothing to see here">🔐</button>
 </nav>
 
 <script>
@@ -6653,22 +6705,74 @@ function secretFoot(){
         : "🤫 Kept on this device only";
 }
 
-// Stars on the wheel: in a band near its rim, so they show as arcs along
-// the top of the page; fainter and fewer further down.
-{
+// Stars on the wheel: in a band from its rim (the top of the page) down to
+// about halfway down the page, thinning and fading further down; some
+// twinkle, some leave trails. Made each time the page opens, to fit it.
+function makeStars(){
     const wheel = document.getElementById("starWheel");
-    for(let i = 0; i < 260; i++){
+    const vmax = Math.max(innerWidth, innerHeight) / 100;           // px per vmax
+    const band = 0.5 * innerHeight / vmax;                          // half the page, in vmax
+    const stars = [];
+    for(let i = 0; i < 520; i++){
         const star = document.createElement("i");
-        const depth = Math.pow(Math.random(), 1.5);             // most near the top edge
-        const r = 60 + depth * 24;                              // vmax from the pole: 60 = top of the page
-        if(i % 3 === 0) star.className = "tw";                  // a third twinkle
-        star.style.cssText = `--a:${Math.random()*360}deg;--r:${r.toFixed(1)}vmax;--s:${(1 + Math.random()*1.6).toFixed(1)}px;` +
-            `--o:${(0.85 - depth*0.6).toFixed(2)};--t:${(2 + Math.random()*4).toFixed(1)}s;--d:${(-Math.random()*6).toFixed(1)}s`;
-        wheel.append(star);
+        const depth = Math.pow(Math.random(), 1.35);                // more near the top
+        const r = 60 + depth * band;                                // 60vmax from the pole = top of the page
+        const cls = [];
+        if(i % 3 === 0) cls.push("tw");                             // a third twinkle
+        if(i % 6 === 1) cls.push("trail");                          // a sixth have trails
+        star.className = cls.join(" ");
+        star.style.cssText = `--a:${(Math.random()*360).toFixed(2)}deg;--r:${r.toFixed(2)}vmax;` +
+            `--s:${(1 + Math.random()*1.6).toFixed(1)}px;--o:${(0.9 - depth*0.65).toFixed(2)};` +
+            `--l:${Math.round(14 + Math.random()*50)}px;--t:${(2 + Math.random()*4).toFixed(1)}s;--d:${(-Math.random()*6).toFixed(1)}s`;
+        stars.push(star);
     }
+    wheel.replaceChildren(...stars);
+}
+
+// The lock bursts into sparkles, over the page that opens.
+function secretBurst(fromEl){
+    if(REDUCED_MOTION.matches) return;
+    const r = fromEl.getBoundingClientRect();
+    const cx = r.left + r.width/2, cy = r.top + r.height/2;
+    const layer = el("div", {className:"burst-layer", ariaHidden:"true"});
+    document.body.append(layer);
+    const SPARKS = ["✨", "💫", "⭐", "🌟", "✨", "💖", "🔑"];
+    const COLORS = ["#ffd43b", "#ff8787", "#c9a3f0", "#74c0fc", "#69db7c", "#ffffff", "#f783ac"];
+    const rand = (a, b)=>a + Math.random()*(b - a);
+    const anims = [];
+    // the lock itself pops
+    const lock = el("span", {textContent:"🔐"});
+    lock.style.fontSize = "26px";
+    layer.append(lock);
+    anims.push(lock.animate([
+        { transform:`translate(${cx-13}px, ${cy-13}px) scale(1) rotate(0)`, opacity:1 },
+        { transform:`translate(${cx-13}px, ${cy-13}px) scale(2.6) rotate(-20deg)`, opacity:1, offset:0.35 },
+        { transform:`translate(${cx-13}px, ${cy-13}px) scale(0.2) rotate(30deg)`, opacity:0 }
+    ], { duration:520, easing:"ease-out", fill:"forwards" }));
+    // emoji sparkles and coloured dots flying out, falling a little
+    for(let i = 0; i < 46; i++){
+        const emoji = i < 16;
+        const p = el("span", emoji ? {className:"spark", textContent:SPARKS[i % SPARKS.length]} : {className:"dot"});
+        const size = emoji ? rand(14, 30) : rand(4, 9);
+        if(emoji) p.style.fontSize = `${size}px`;
+        else Object.assign(p.style, { width:`${size}px`, height:`${size}px`, background:COLORS[i % COLORS.length],
+                                      boxShadow:`0 0 ${size*1.5}px ${COLORS[i % COLORS.length]}` });
+        layer.append(p);
+        const angle = rand(0, Math.PI*2), dist = rand(80, Math.min(innerWidth, innerHeight) * 0.55);
+        const dx = Math.cos(angle)*dist, dy = Math.sin(angle)*dist;
+        const x0 = cx - size/2, y0 = cy - size/2;
+        anims.push(p.animate([
+            { transform:`translate(${x0}px, ${y0}px) scale(0.3) rotate(0)`, opacity:1 },
+            { transform:`translate(${x0 + dx*0.7}px, ${y0 + dy*0.7}px) scale(1.15) rotate(${rand(-90, 90)}deg)`, opacity:1, offset:0.45 },
+            { transform:`translate(${x0 + dx}px, ${y0 + dy + rand(40, 120)}px) scale(0.6) rotate(${rand(-180, 180)}deg)`, opacity:0 }
+        ], { duration:rand(900, 1500), delay:rand(0, 120), easing:"cubic-bezier(.15,.7,.3,1)", fill:"forwards" }));
+    }
+    Promise.all(anims.map(a=>a.finished)).finally(()=>layer.remove());
 }
 
 dom.secretBtn.addEventListener("click", ()=>{
+    secretBurst(dom.secretBtn);
+    makeStars();
     dom.secretText.value = localStorage.getItem(SECRET_KEY) ?? "";
     secretFoot();
     openPage(dom.secretPage, dom.secretClose);
@@ -6681,13 +6785,22 @@ dom.secretText.addEventListener("input", ()=>{
     }catch{ /* storage full: keep typing anyway */ }
     secretFoot();
 });
+// The padlock stays open while the diary is; tapping it snaps it shut,
+// then the diary closes.
 const closeSecret = ()=>{
     if(dom.secretPage.hidden) return;
     dom.secretPage.hidden = true;
     dom.secretText.value = "";          // not left lying around in the page
+    dom.secretClose.textContent = "🔓";  // open again next time
+    dom.secretClose.classList.remove("locking");
     showToast("🔒 Locked away");
 };
-dom.secretClose.addEventListener("click", closeSecret);
+dom.secretClose.addEventListener("click", ()=>{
+    if(dom.secretClose.classList.contains("locking")) return;
+    dom.secretClose.textContent = "🔒";
+    dom.secretClose.classList.add("locking");
+    setTimeout(closeSecret, REDUCED_MOTION.matches ? 0 : 450);
+});
 document.addEventListener("keydown", e=>{ if(e.key === "Escape") closeSecret(); });
 
 renderBuilder();
