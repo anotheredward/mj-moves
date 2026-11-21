@@ -1305,6 +1305,169 @@ body.menu-open #backdrop{
     cursor:pointer;
 }
 
+/* ---------- Practice Log ---------- */
+.log-month{
+    margin:22px 0 8px;
+    font-size:14px;
+    color:var(--ink-soft);
+}
+
+.log-row{
+    display:flex;
+    flex-direction:column;
+    gap:4px;
+    width:100%;
+    margin-bottom:8px;
+    padding:12px 14px;
+    border:1px solid var(--rule);
+    border-radius:12px;
+    background:var(--surface);
+    color:var(--ink);
+    font:inherit;
+    text-align:left;
+    cursor:pointer;
+}
+
+.log-row:hover{
+    background:var(--hover);
+}
+
+.log-row-top{
+    display:flex;
+    align-items:center;
+    gap:8px;
+}
+
+.log-date{
+    font-weight:600;
+}
+
+.log-type{
+    padding:1px 8px;
+    border-radius:999px;
+    font-size:12px;
+    font-weight:600;
+    background:var(--accent-soft);
+    color:var(--accent-text);
+}
+
+.log-type.practice{
+    background:var(--chip);
+    color:var(--ink-soft);
+}
+
+.log-has-video{
+    margin-left:auto;
+}
+
+.log-preview{
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+    font-size:14px;
+    color:var(--ink-soft);
+}
+
+.log-back{
+    min-height:40px;
+    padding:0 14px;
+    margin-bottom:8px;
+}
+
+.log-entry input[type=date],
+.log-entry input[type=url]{
+    min-height:40px;
+    padding:0 10px;
+    border:1px solid var(--control-border);
+    border-radius:8px;
+    background:var(--surface);
+    color:var(--ink);
+    font:inherit;
+    font-size:16px;
+}
+
+.log-entry .flash-notes label,
+.log-h{
+    margin:18px 0 6px;
+    font-size:16px;
+    font-weight:600;
+    color:var(--ink);
+}
+
+.log-combo{
+    display:inline-flex;
+    align-items:center;
+}
+
+.log-combo .combo-chip{
+    border-radius:16px 0 0 16px;
+}
+
+.mp-chips .log-x{
+    border-left:none;
+    border-radius:0 16px 16px 0;
+    padding:2px 9px;
+    color:var(--ink-soft);
+}
+
+.log-video video{
+    display:block;
+    width:100%;
+    max-height:60vh;
+    border-radius:10px;
+    background:black;
+}
+
+.log-video button{
+    min-height:44px;
+    padding:0 14px;
+}
+
+.log-video-meta{
+    margin:6px 0 8px;
+    color:var(--ink-soft);
+}
+
+.log-link{
+    display:flex;
+    gap:8px;
+    margin-top:10px;
+}
+
+.log-link input{
+    flex:1;
+    min-width:0;
+}
+
+.log-open{
+    display:flex;
+    align-items:center;
+    padding:0 14px;
+    text-decoration:none;
+}
+
+.log-open[hidden]{
+    display:none;
+}
+
+.log-hint{
+    margin-top:10px;
+    font-size:13px;
+    color:var(--ink-faded);
+}
+
+.log-delete{
+    margin-top:28px;
+    min-height:40px;
+    padding:0 14px;
+    border:1px solid #d9534f;
+    border-radius:8px;
+    background:none;
+    color:#d9534f;
+    font:inherit;
+    cursor:pointer;
+}
+
 /* ---------- Practice: menu buttons ---------- */
 .practice-area{
     margin-top:14px;
@@ -2268,6 +2431,14 @@ body.menu-open #backdrop{
 <div id="flashBody" class="practice-body"></div>
 </div>
 
+<div id="logPage" class="overlay-page" role="dialog" aria-modal="true" aria-labelledby="logTitle" hidden>
+<header class="overlay-header">
+<h2 id="logTitle">Practice Log</h2>
+<button type="button" id="logClose" class="overlay-close" aria-label="Close the practice log">✕</button>
+</header>
+<div id="logBody" class="practice-body"></div>
+</div>
+
 <div id="statsPage" class="overlay-page" role="dialog" aria-modal="true" aria-labelledby="statsTitle" hidden>
 <header class="overlay-header">
 <h2 id="statsTitle">Statistics</h2>
@@ -2339,6 +2510,10 @@ body.menu-open #backdrop{
 <button type="button" id="flashBtn" class="secondary practice-btn">
 <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="3" y="6" width="13" height="15" rx="2"/><path d="M8 3h11a2 2 0 0 1 2 2v13"/></svg>
 <span><b>Flashcards</b><small>Remember every detail of each move</small></span>
+</button>
+<button type="button" id="logBtn" class="secondary practice-btn">
+<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="17" rx="2"/><path d="M8 2v4M16 2v4M4 10h16M8 14h4"/></svg>
+<span><b>Practice Log</b><small>Your classes and practice, with notes and videos</small></span>
 </button>
 </div>
 <div class="fx-wrap" id="statsFx">
@@ -2610,7 +2785,7 @@ const fitPadding = () => isCompact() ? 20 : 50;
 const dom = Object.fromEntries(
     ["container","graph","cy","caption","comboTitle","stepHighlight","menu","menuBtn","closeBtn","classSection","showIntro","superSlot","toast","randomSection","lengthGroup","loopCombo","generateBtn","favBtn","shareBtn","favList","favCount","movePanel","themeGroup","shuffleBtn","replaceBtn","avoidChanges",
      "backdrop","comboList","buildSection","buildSeq","buildUndo","buildClear","buildFromCurrent","buildMoves",
-     "callerBtn","callerPage","callerBody","callerClose","flashBtn","flashPage","flashBody","flashClose","statsFx","statsBtn","statsPage","statsBody","statsClose","statsTip","prevBtn","nextBtn"].map(id=>[id, document.getElementById(id)])
+     "logBtn","logPage","logBody","logClose","callerBtn","callerPage","callerBody","callerClose","flashBtn","flashPage","flashBody","flashClose","statsFx","statsBtn","statsPage","statsBody","statsClose","statsTip","prevBtn","nextBtn"].map(id=>[id, document.getElementById(id)])
 );
 
 // selection: the combination the user picked ({kind:"combo", combo} | null)
@@ -5224,6 +5399,245 @@ for(const [value, label] of [["auto", "Auto"], ["light", "Light"], ["dark", "Dar
 }
 DARK_QUERY.addEventListener("change", applyTheme);
 applyTheme();
+
+// =====================================================================
+// Practice Log: a diary of classes and practice sessions. Each entry gets
+// today's date automatically, your notes, optionally the combination you
+// were working on, and a video - picked from your camera roll (a copy is
+// kept on this device) or a link (Google Photos, iCloud, YouTube...).
+// =====================================================================
+
+const LOG_KEY = "mj-moves:log";
+let logEntries = loadJSON(LOG_KEY, []);
+if(!Array.isArray(logEntries)) logEntries = [];
+const saveLog = ()=>saveJSON(LOG_KEY, logEntries);
+let logOpenId = null;           // the entry being edited, or null for the list
+
+// Attached videos live in IndexedDB (localStorage is far too small).
+const videoStore = (()=>{
+    let dbp = null;
+    const db = ()=>dbp ??= new Promise((resolve, reject)=>{
+        const req = indexedDB.open("mj-moves", 1);
+        req.onupgradeneeded = ()=>req.result.createObjectStore("videos");
+        req.onsuccess = ()=>resolve(req.result);
+        req.onerror = ()=>reject(req.error);
+    });
+    const run = (mode, fn)=>db().then(d=>new Promise((resolve, reject)=>{
+        const tx = d.transaction("videos", mode);
+        const req = fn(tx.objectStore("videos"));
+        tx.oncomplete = ()=>resolve(req?.result);
+        tx.onerror = tx.onabort = ()=>reject(tx.error);
+    }));
+    return {
+        get:id=>run("readonly", s=>s.get(id)),
+        put:(id, blob)=>run("readwrite", s=>s.put(blob, id)),
+        remove:id=>run("readwrite", s=>s.delete(id))
+    };
+})();
+
+const prettyDate = iso=>{
+    const [y, m, d] = iso.split("-").map(Number);
+    return new Date(y, m-1, d).toLocaleDateString(undefined, { weekday:"short", day:"numeric", month:"short", year:"numeric" });
+};
+const daysAgo = iso=>{
+    const [y, m, d] = iso.split("-").map(Number);
+    const then = new Date(y, m-1, d), now = new Date();
+    return Math.round((new Date(now.getFullYear(), now.getMonth(), now.getDate()) - then) / 86400000);
+};
+const sizeText = bytes => bytes > 1e9 ? `${(bytes/1e9).toFixed(1)} GB` : `${Math.max(1, Math.round(bytes/1e6))} MB`;
+
+function newLogEntry(){
+    const current = state.selection?.kind === "combo" ? state.selection.combo : null;
+    const entry = { id:`log-${Date.now()}`, date:today(), created:Date.now(), type:"class", notes:"",
+                    combos:current ? [{ name:comboName(current), moves:[...current.moves] }] : [], link:"", video:null };
+    logEntries.unshift(entry);
+    saveLog();
+    logOpenId = entry.id;
+    renderLog();
+}
+
+function renderLog(){
+    if(dom.logPage.hidden) return;
+    const entry = logEntries.find(e=>e.id === logOpenId);
+    dom.logBody.replaceChildren(entry ? logEntryView(entry) : logListView());
+}
+
+function logListView(){
+    const add = el("button", {type:"button", className:"primary big-action", textContent:"+ New entry"});
+    add.addEventListener("click", newLogEntry);
+    const sorted = logEntries.toSorted((a,b)=>b.date.localeCompare(a.date) || b.created - a.created);
+    const parts = [
+        el("p", {className:"intent"},
+            el("b", {textContent:"A diary of your classes and practice. "}),
+            "Each entry is dated automatically. Note what you learned or want to work on, add the combination you " +
+            "were dancing, and keep a video - from your camera roll or a link."),
+        add
+    ];
+    if(sorted.length){
+        const classes = sorted.filter(e=>e.type === "class").length;
+        const last = daysAgo(sorted[0].date);
+        parts.push(el("p", {className:"summary-line", textContent:
+            `${sorted.length} ${sorted.length === 1 ? "entry" : "entries"} (${classes} class${classes === 1 ? "" : "es"}, ` +
+            `${sorted.length - classes} practice) · last one ${last === 0 ? "today" : last === 1 ? "yesterday" : `${last} days ago`}`}));
+    }
+    let month = null;
+    for(const e of sorted){
+        const m = e.date.slice(0, 7);
+        if(m !== month){
+            month = m;
+            const [y, mo] = m.split("-").map(Number);
+            parts.push(el("h3", {className:"log-month", textContent:new Date(y, mo-1, 1).toLocaleDateString(undefined, {month:"long", year:"numeric"})}));
+        }
+        const row = el("button", {type:"button", className:"log-row"},
+            el("span", {className:"log-row-top"},
+                el("span", {className:"log-date", textContent:prettyDate(e.date)}),
+                el("span", {className:`log-type ${e.type}`, textContent:e.type === "class" ? "Class" : "Practice"}),
+                ...(e.video || e.link ? [el("span", {className:"log-has-video", textContent:"🎬", title:"Has a video"})] : [])),
+            el("span", {className:"log-preview", textContent:e.notes.trim().split("\n")[0] ||
+                (e.combos.length ? e.combos.map(c=>c.name).join(", ") : "No notes yet")}));
+        row.addEventListener("click", ()=>{ logOpenId = e.id; renderLog(); dom.logPage.scrollTop = 0; });
+        parts.push(row);
+    }
+    return el("div", {}, ...parts);
+}
+
+function logEntryView(entry){
+    const save = ()=>saveLog();
+    const back = el("button", {type:"button", className:"secondary log-back", textContent:"← All entries"});
+    back.addEventListener("click", ()=>{ logOpenId = null; renderLog(); });
+
+    const date = el("input", {type:"date", value:entry.date, max:inDays(0)});
+    date.addEventListener("change", ()=>{ if(date.value){ entry.date = date.value; save(); } });
+
+    const type = segmented(["class", "practice"], entry.type, v=>{ entry.type = v; save(); renderLog(); },
+        v=>v === "class" ? "Class" : "Practice");
+
+    const notesId = `log-notes-${entry.id}`;
+    const notes = el("textarea", {id:notesId, value:entry.notes,
+        placeholder:"What did you learn? What felt good? What to work on next time?"});
+    notes.addEventListener("input", ()=>{ entry.notes = notes.value; save(); });
+
+    // combinations worked on
+    const comboList = el("div", {className:"mp-chips"});
+    const paintCombos = ()=>{
+        comboList.replaceChildren(...entry.combos.map((c, i)=>{
+            const open = el("button", {type:"button", className:"combo-chip", textContent:c.name, title:c.moves.join(" → ")});
+            open.addEventListener("click", ()=>{
+                const combo = classCombo(c.moves) ?? { id:null, caption:"Log", moves:[...c.moves] };
+                closeLog();
+                state.preview = null;
+                selectCombo(combo);
+            });
+            const remove = el("button", {type:"button", className:"log-x", textContent:"✕", ariaLabel:`Remove ${c.name}`});
+            remove.addEventListener("click", ()=>{ entry.combos.splice(i, 1); save(); paintCombos(); });
+            return el("span", {className:"log-combo"}, open, remove);
+        }));
+        const current = state.selection?.kind === "combo" ? state.selection.combo : null;
+        if(current && !entry.combos.some(c=>sameMoves(c.moves, current.moves))){
+            const addCurrent = el("button", {type:"button", textContent:`+ ${comboName(current)}`});
+            addCurrent.addEventListener("click", ()=>{
+                entry.combos.push({ name:comboName(current), moves:[...current.moves] });
+                save();
+                paintCombos();
+            });
+            comboList.append(addCurrent);
+        }
+        if(!comboList.children.length) comboList.append(el("p", {className:"mp-text",
+            textContent:"Show a combination on the graph to add it here."}));
+    };
+    paintCombos();
+
+    // video: from the camera roll (kept in this browser) or a link
+    const videoBox = el("div", {className:"log-video"});
+    const paintVideo = async ()=>{
+        videoBox.replaceChildren();
+        if(entry.video){
+            let blob = null;
+            try{ blob = await videoStore.get(entry.id); }catch{}
+            if(blob){
+                const v = el("video", {controls:true, playsInline:true, preload:"metadata", src:URL.createObjectURL(blob)});
+                videoBox.append(v);
+            }else{
+                videoBox.append(el("p", {className:"mp-text", textContent:"This video isn't stored on this device any more."}));
+            }
+            const remove = el("button", {type:"button", className:"secondary", textContent:"Remove video"});
+            remove.addEventListener("click", async ()=>{
+                if(!confirm("Remove this video from the log? (The original in your camera roll isn't touched.)")) return;
+                try{ await videoStore.remove(entry.id); }catch{}
+                entry.video = null;
+                save();
+                paintVideo();
+            });
+            videoBox.append(el("p", {className:"mp-text log-video-meta", textContent:
+                `${entry.video.name} · ${sizeText(entry.video.size)} · kept on this device only`}), remove);
+        }else{
+            const input = el("input", {type:"file", accept:"video/*", hidden:true});
+            const pick = el("button", {type:"button", className:"secondary", textContent:"🎬 Add a video from your camera roll"});
+            pick.addEventListener("click", ()=>input.click());
+            input.addEventListener("change", async ()=>{
+                const file = input.files?.[0];
+                if(!file) return;
+                if(file.size > 500e6 && !confirm(`This video is ${sizeText(file.size)}. Keep a copy on this device anyway?`)) return;
+                pick.disabled = true;
+                pick.textContent = "Saving…";
+                try{
+                    await videoStore.put(entry.id, file);
+                    entry.video = { name:file.name, size:file.size, type:file.type };
+                    save();
+                }catch{
+                    showToast("Couldn't save the video - the device may be out of space");
+                }
+                paintVideo();
+            });
+            videoBox.append(pick, input);
+        }
+    };
+    paintVideo();
+
+    const link = el("input", {type:"url", value:entry.link, placeholder:"https:// (Google Photos, iCloud, YouTube…)"});
+    const openLink = el("a", {className:"secondary log-open", target:"_blank", rel:"noopener", textContent:"Open ↗"});
+    const paintLink = ()=>{
+        const ok = /^https?:\/\//i.test(entry.link);
+        openLink.hidden = !ok;
+        if(ok) openLink.href = entry.link;
+    };
+    link.addEventListener("input", ()=>{ entry.link = link.value.trim(); save(); paintLink(); });
+    paintLink();
+
+    const del = el("button", {type:"button", className:"log-delete", textContent:"Delete entry"});
+    del.addEventListener("click", async ()=>{
+        if(!confirm("Delete this entry" + (entry.video ? " and its video" : "") + "?")) return;
+        if(entry.video){ try{ await videoStore.remove(entry.id); }catch{} }
+        logEntries = logEntries.filter(e=>e !== entry);
+        save();
+        logOpenId = null;
+        renderLog();
+    });
+
+    return el("div", {className:"log-entry"},
+        back,
+        setting("Date", "Set automatically - change it if you're catching up", date),
+        setting("Type", null, type),
+        el("div", {className:"flash-notes"}, el("label", {htmlFor:notesId, textContent:"Notes"}), notes),
+        el("h3", {className:"log-h", textContent:"Combinations"}), comboList,
+        el("h3", {className:"log-h", textContent:"Video"}), videoBox,
+        el("div", {className:"log-link"}, link, openLink),
+        el("p", {className:"mp-text log-hint", textContent:
+            "Videos from your camera roll are copied into this app on this device (not backed up or synced). " +
+            "To share or keep one safe, paste a link from Google Photos or iCloud instead."}),
+        del);
+}
+
+function closeLog(){
+    if(dom.logPage.hidden) return;
+    dom.logPage.hidden = true;
+    logOpenId = null;
+    dom.logBtn.focus({preventScroll:true});
+}
+
+dom.logBtn.addEventListener("click", ()=>{ logOpenId = null; openPage(dom.logPage, dom.logClose); renderLog(); });
+dom.logClose.addEventListener("click", closeLog);
+document.addEventListener("keydown", e=>{ if(e.key === "Escape") closeLog(); });
 
 renderBuilder();
 
