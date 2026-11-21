@@ -1650,6 +1650,82 @@ button.cal-day{
     color:var(--ink-soft);
 }
 
+.log-move{
+    margin-bottom:10px;
+    padding:10px 12px;
+    border:1px solid var(--rule);
+    border-radius:12px;
+    background:var(--surface);
+}
+
+.log-move-head{
+    display:flex;
+    align-items:center;
+    gap:8px;
+}
+
+.log-move-head .mp-level{
+    margin-top:0;
+}
+
+.log-move-head .nm-x{
+    margin-left:auto;
+}
+
+.log-move .nm-video{
+    margin:8px 0 0;
+}
+
+.log-search input{
+    width:100%;
+    min-height:44px;
+    padding:0 12px;
+    border:1px solid var(--control-border);
+    border-radius:8px;
+    background:var(--surface);
+    color:var(--ink);
+    font:inherit;
+    font-size:16px;
+    box-sizing:border-box;
+}
+
+.log-results{
+    margin-top:8px;
+}
+
+.log-results-note{
+    align-self:center;
+    font-size:13px;
+    color:var(--ink-faded);
+}
+
+.log-video{
+    margin-bottom:16px;
+}
+
+.log-video-head{
+    display:flex;
+    align-items:center;
+    gap:8px;
+}
+
+.log-video-head input{
+    flex:1;
+    min-width:0;
+    min-height:40px;
+    padding:0 10px;
+    border:1px solid var(--control-border);
+    border-radius:8px;
+    background:var(--surface);
+    color:var(--ink);
+    font:inherit;
+    font-size:16px;
+}
+
+.log-video .nm-video{
+    margin:8px 0 0;
+}
+
 .log-video video{
     display:block;
     width:100%;
@@ -5414,7 +5490,7 @@ function calendarCard(){
             tile("This month", fmt(inMonth.length), `${monthClasses} class${monthClasses === 1 ? "" : "es"}, ${inMonth.length - monthClasses} practice`),
             tile("Weeks in a row", fmt(streak.current), `Longest run: ${plural(streak.longest, "week")}`),
             tile("Last session", ago === null ? "–" : ago === 0 ? "Today" : ago === 1 ? "Yesterday" : `${ago} days ago`,
-                 `${logEntries.length} ${logEntries.length === 1 ? "entry" : "entries"} in all · ${logEntries.filter(e=>e.video || e.link).length} with video`));
+                 `${logEntries.length} ${logEntries.length === 1 ? "entry" : "entries"} in all · ${logEntries.filter(e=>e.videos?.length).length} with video`));
 
         // sessions per month, last 6 months (stacked: class, practice)
         const months = [...Array(6).keys()].map(i=>{
@@ -6860,6 +6936,21 @@ const LOG_KEY = "mj-moves:log";
 let logEntries = loadJSON(LOG_KEY, []);
 if(!Array.isArray(logEntries)) logEntries = [];
 const saveLog = ()=>saveJSON(LOG_KEY, logEntries);
+// Each entry has any number of videos ({id, kind:"file"|"link", label, ...})
+// and the moves practised. Entries from before (one video and one link)
+// are moved over; that video stays stored under the entry's own id.
+{
+    let changed = false;
+    for(const e of logEntries){
+        if(!Array.isArray(e.videos)){ e.videos = []; changed = true; }
+        if(!Array.isArray(e.moves)){ e.moves = []; changed = true; }
+        if(e.video){ e.videos.unshift({ id:"v0", kind:"file", key:e.id, label:"", ...e.video }); changed = true; }
+        if(e.link){ e.videos.push({ id:"v1", kind:"link", label:"", url:e.link }); changed = true; }
+        if("video" in e || "link" in e){ delete e.video; delete e.link; changed = true; }
+    }
+    if(changed) saveLog();
+}
+const logVideoKey = (e, v)=>v.key ?? `${e.id}-${v.id}`;
 let logOpenId = null;           // the entry being edited, or null for the list
 
 // Attached videos live in IndexedDB (localStorage is far too small).
@@ -6898,7 +6989,7 @@ const sizeText = bytes => bytes > 1e9 ? `${(bytes/1e9).toFixed(1)} GB` : `${Math
 function newLogEntry(){
     const current = state.selection?.kind === "combo" ? state.selection.combo : null;
     const entry = { id:`log-${Date.now()}`, date:today(), created:Date.now(), type:"class", notes:"",
-                    combos:current ? [{ name:comboName(current), moves:[...current.moves] }] : [], link:"", video:null };
+                    combos:current ? [{ name:comboName(current), moves:[...current.moves] }] : [], moves:[], videos:[] };
     logEntries.unshift(entry);
     saveLog();
     logOpenId = entry.id;
@@ -6941,9 +7032,10 @@ function logListView(){
             el("span", {className:"log-row-top"},
                 el("span", {className:"log-date", textContent:prettyDate(e.date)}),
                 el("span", {className:`log-type ${e.type}`, textContent:e.type === "class" ? "Class" : "Practice"}),
-                ...(e.video || e.link ? [el("span", {className:"log-has-video", textContent:"🎬", title:"Has a video"})] : [])),
+                ...(e.videos.length ? [el("span", {className:"log-has-video", textContent:e.videos.length > 1 ? `🎬 ${e.videos.length}` : "🎬",
+                    title:plural(e.videos.length, "video")})] : [])),
             el("span", {className:"log-preview", textContent:e.notes.trim().split("\n")[0] ||
-                (e.combos.length ? e.combos.map(c=>c.name).join(", ") : "No notes yet")}));
+                (e.combos.length || e.moves.length ? [...e.combos.map(c=>c.name), ...e.moves].join(", ") : "No notes yet")}));
         row.addEventListener("click", ()=>{ logOpenId = e.id; renderLog(); dom.logPage.scrollTop = 0; });
         parts.push(row);
     }
@@ -6996,67 +7088,129 @@ function logEntryView(entry){
     };
     paintCombos();
 
-    // video: from the camera roll (kept in this browser) or a link
-    const videoBox = el("div", {className:"log-video"});
-    const paintVideo = async ()=>{
-        videoBox.replaceChildren();
-        if(entry.video){
-            let blob = null;
-            try{ blob = await videoStore.get(entry.id); }catch{}
-            if(blob){
-                const v = el("video", {controls:true, playsInline:true, preload:"metadata", src:URL.createObjectURL(blob)});
-                videoBox.append(v);
-            }else{
-                videoBox.append(el("p", {className:"mp-text", textContent:"This video isn't stored on this device any more."}));
-            }
-            const remove = el("button", {type:"button", className:"secondary", textContent:"Remove video"});
-            remove.addEventListener("click", async ()=>{
-                if(!confirm("Remove this video from the log? (The original in your camera roll isn't touched.)")) return;
-                try{ await videoStore.remove(entry.id); }catch{}
-                entry.video = null;
-                save();
-                paintVideo();
-            });
-            videoBox.append(el("p", {className:"mp-text log-video-meta", textContent:
-                `${entry.video.name} · ${sizeText(entry.video.size)} · kept on this device only`}), remove);
-        }else{
-            const input = el("input", {type:"file", accept:"video/*", hidden:true});
-            const pick = el("button", {type:"button", className:"secondary", textContent:"🎬 Add a video from your camera roll"});
-            pick.addEventListener("click", ()=>input.click());
-            input.addEventListener("change", async ()=>{
-                const file = input.files?.[0];
-                if(!file) return;
-                if(file.size > 500e6 && !confirm(`This video is ${sizeText(file.size)}. Keep a copy on this device anyway?`)) return;
-                pick.disabled = true;
-                pick.textContent = "Saving…";
-                try{
-                    await videoStore.put(entry.id, file);
-                    entry.video = { name:file.name, size:file.size, type:file.type };
-                    save();
-                }catch{
-                    showToast("Couldn't save the video - the device may be out of space");
-                }
-                paintVideo();
-            });
-            videoBox.append(pick, input);
-        }
+    // moves practised: search to add; a new move's own video shows with it
+    const movesList = el("div", {className:"log-moves"});
+    const search = el("input", {type:"search", placeholder:"Search moves to add…", ariaLabel:"Search moves to add",
+        autocomplete:"off", enterKeyHint:"done"});
+    const results = el("div", {className:"mp-chips log-results"});
+    const addMove = name=>{
+        if(!entry.moves.includes(name)) entry.moves.push(name);
+        save();
+        search.value = "";
+        paintMoves();
     };
-    paintVideo();
+    const matches = ()=>{
+        const q = search.value.trim().toLowerCase();
+        const left = MOVES.map(m=>m.name).filter(n=>!entry.moves.includes(n));
+        if(!q) return [...new Set(entry.combos.flatMap(c=>c.moves))].filter(n=>left.includes(n));
+        const words = q.split(/\s+/);
+        return left.filter(n=>words.every(w=>n.toLowerCase().includes(w)))
+            .sort((a, b)=>a.toLowerCase().startsWith(q) ? -1 : b.toLowerCase().startsWith(q) ? 1 : 0).slice(0, 10);
+    };
+    const paintResults = ()=>{
+        const found = matches();
+        const q = search.value.trim();
+        results.replaceChildren(
+            ...(found.length && !q ? [el("span", {className:"log-results-note", textContent:"From your combinations:"})] : []),
+            ...found.map(n=>{
+                const b = el("button", {type:"button", textContent:`+ ${n}`});
+                b.addEventListener("click", ()=>{ addMove(n); search.focus(); });
+                return b;
+            }),
+            ...(q && !found.length ? [el("span", {className:"log-results-note", textContent:"No moves match"})] : []));
+    };
+    search.addEventListener("input", paintResults);
+    search.addEventListener("keydown", e=>{
+        if(e.key === "Enter"){ e.preventDefault(); const first = matches()[0]; if(search.value.trim() && first) addMove(first); }
+    });
+    const paintMoves = ()=>{
+        movesList.replaceChildren(...entry.moves.map((name, i)=>{
+            const m = MOVE_STATES.get(name);
+            const mine = m?.custom ? newMoves.find(n=>n.id === m.id) : null;
+            const main = mine?.videos?.[0];
+            const remove = el("button", {type:"button", className:"nm-x", textContent:"✕", ariaLabel:`Remove ${name}`});
+            remove.addEventListener("click", ()=>{ entry.moves.splice(i, 1); save(); paintMoves(); });
+            return el("div", {className:"log-move"},
+                el("div", {className:"log-move-head"},
+                    el("b", {textContent:name}),
+                    ...(m ? [el("span", {className:`mp-level ${m.level}`, textContent:m.level})] : []),
+                    remove),
+                ...(main ? [videoView(main, newMoveVideoKey(mine, main), name)] : []));
+        }));
+        if(!entry.moves.length) movesList.append(el("p", {className:"mp-text", textContent:"No moves yet - search for them below."}));
+        paintResults();
+    };
+    paintMoves();
 
-    const link = el("input", {type:"url", value:entry.link, placeholder:"https:// (Google Photos, iCloud, YouTube…)"});
-    const openLink = el("a", {className:"secondary log-open", target:"_blank", rel:"noopener", textContent:"Open ↗"});
-    const paintLink = ()=>{
-        const ok = /^https?:\/\//i.test(entry.link);
-        openLink.hidden = !ok;
-        if(ok) openLink.href = entry.link;
+    // videos: as many as you like, each from the camera roll (kept in this
+    // browser) or a link, with a label ("Teachers' demo", "Me"...)
+    const videoList = el("div", {className:"log-videos"});
+    const paintVideos = ()=>{
+        videoList.replaceChildren(...entry.videos.map((v, i)=>{
+            const label = el("input", {type:"text", value:v.label ?? "", placeholder:"Label, e.g. Teachers' demo or Me",
+                ariaLabel:`Label for video ${i+1}`});
+            label.addEventListener("input", ()=>{ v.label = label.value; save(); });
+            const remove = el("button", {type:"button", className:"nm-x", textContent:"✕", ariaLabel:`Remove video ${i+1}`});
+            remove.addEventListener("click", async ()=>{
+                if(!confirm(v.kind === "file" ? "Remove this video from the log? (The original in your camera roll isn't touched.)"
+                                              : "Remove this video link?")) return;
+                if(v.kind === "file"){ try{ await videoStore.remove(logVideoKey(entry, v)); }catch{} }
+                entry.videos.splice(i, 1);
+                save();
+                paintVideos();
+            });
+            return el("div", {className:"log-video"},
+                el("div", {className:"log-video-head"}, el("span", {className:"nm-vtag", textContent:`${i+1}`}), label, remove),
+                videoView(v, logVideoKey(entry, v), label.value || "Practice video"),
+                ...(v.kind === "file" ? [el("p", {className:"mp-text log-video-meta", textContent:
+                    `${v.name} · ${sizeText(v.size)} · kept on this device only`})] : []));
+        }));
     };
-    link.addEventListener("input", ()=>{ entry.link = link.value.trim(); save(); paintLink(); });
-    paintLink();
+    paintVideos();
+
+    const input = el("input", {type:"file", accept:"video/*", multiple:true, hidden:true});
+    const pick = el("button", {type:"button", className:"secondary", textContent:"🎬 Add from your camera roll"});
+    pick.addEventListener("click", ()=>input.click());
+    input.addEventListener("change", async ()=>{
+        const files = [...(input.files ?? [])];
+        input.value = "";
+        const big = files.reduce((n, f)=>n + f.size, 0);
+        if(!files.length || (big > 500e6 && !confirm(`${files.length > 1 ? "These videos are" : "This video is"} ${sizeText(big)}. Keep a copy on this device anyway?`))) return;
+        pick.disabled = true;
+        pick.textContent = "Saving…";
+        for(const file of files){
+            const v = { id:uid(), kind:"file", label:"", name:file.name, size:file.size, type:file.type };
+            try{
+                await videoStore.put(logVideoKey(entry, v), file);
+                entry.videos.push(v);
+                save();
+            }catch{
+                showToast("Couldn't save the video - the device may be out of space");
+                break;
+            }
+        }
+        pick.disabled = false;
+        pick.textContent = "🎬 Add from your camera roll";
+        paintVideos();
+    });
+    const link = el("input", {type:"url", placeholder:"https:// (Google Photos, iCloud, YouTube…)", ariaLabel:"Video link"});
+    const addLink = el("button", {type:"button", className:"secondary", textContent:"Add link"});
+    const takeLink = ()=>{
+        const url = link.value.trim();
+        if(!/^https?:\/\/\S+$/i.test(url)){ showToast("Paste a link starting with https://"); return; }
+        entry.videos.push({ id:uid(), kind:"link", label:"", url });
+        save();
+        link.value = "";
+        paintVideos();
+    };
+    addLink.addEventListener("click", takeLink);
+    link.addEventListener("keydown", e=>{ if(e.key === "Enter"){ e.preventDefault(); takeLink(); } });
 
     const del = el("button", {type:"button", className:"log-delete", textContent:"Delete entry"});
     del.addEventListener("click", async ()=>{
-        if(!confirm("Delete this entry" + (entry.video ? " and its video" : "") + "?")) return;
-        if(entry.video){ try{ await videoStore.remove(entry.id); }catch{} }
+        const files = entry.videos.filter(v=>v.kind === "file");
+        if(!confirm("Delete this entry" + (files.length ? ` and its ${files.length > 1 ? "videos" : "video"}` : "") + "?")) return;
+        for(const v of files){ try{ await videoStore.remove(logVideoKey(entry, v)); }catch{} }
         logEntries = logEntries.filter(e=>e !== entry);
         save();
         logOpenId = null;
@@ -7069,11 +7223,15 @@ function logEntryView(entry){
         setting("Type", null, type),
         el("div", {className:"flash-notes"}, el("label", {htmlFor:notesId, textContent:"Notes"}), notes),
         el("h3", {className:"log-h", textContent:"Combinations"}), comboList,
-        el("h3", {className:"log-h", textContent:"Video"}), videoBox,
-        el("div", {className:"log-link"}, link, openLink),
+        el("h3", {className:"log-h", textContent:"Moves practised"}), movesList,
+        el("div", {className:"log-search"}, search), results,
+        el("h3", {className:"log-h", textContent:"Videos"}), videoList,
+        el("div", {className:"nm-vadd"}, pick, input),
+        el("div", {className:"log-link"}, link, addLink),
         el("p", {className:"mp-text log-hint", textContent:
-            "Videos from your camera roll are copied into this app on this device (not backed up or synced). " +
-            "To share or keep one safe, paste a link from Google Photos or iCloud instead."}),
+            "Add as many as you like - the class demo, yourself dancing it... Videos from your camera roll are copied into " +
+            "this app on this device only (include them in a backup to keep them safe). To share one, paste a link from " +
+            "Google Photos or iCloud instead."}),
         del);
 }
 
@@ -7167,7 +7325,10 @@ function renameMoveData(from, to){
         changed = true;
     }
     if(changed) saveJSON(STATS_KEY, stats);
-    for(const e of logEntries) for(const c of e.combos) c.moves = c.moves.map(m=>m === from ? to : m);
+    for(const e of logEntries){
+        for(const c of e.combos) c.moves = c.moves.map(m=>m === from ? to : m);
+        e.moves = e.moves.map(m=>m === from ? to : m);
+    }
     saveLog();
     for(const n of newMoves) if(n.of === from) n.of = to;
 }
@@ -7202,12 +7363,13 @@ function embedOf(url){
 let nmUrls = [];                // object URLs for stored videos, freed on each redraw
 const blobUrl = blob=>{ const u = URL.createObjectURL(blob); nmUrls.push(u); return u; };
 
-function videoView(n, v){
+// A video: from the camera roll (stored under `key`) or a link.
+function videoView(v, key, title){
     const box = el("div", {className:"nm-video"});
     if(v.kind === "file"){
         const missing = ()=>box.replaceChildren(el("p", {className:"mp-text nm-missing",
             textContent:`${v.name} isn't stored on this device (videos from the camera roll stay on the device they were added on).`}));
-        videoStore.get(newMoveVideoKey(n, v)).then(blob=>{
+        videoStore.get(key).then(blob=>{
             if(!blob) return missing();
             box.replaceChildren(el("video", {controls:true, playsInline:true, preload:"metadata", src:blobUrl(blob)}));
         }, missing);
@@ -7222,7 +7384,7 @@ function videoView(n, v){
     if(embed){
         box.classList.toggle("tall", embed.tall);
         box.append(el("div", {className:"nm-frame"}, el("iframe", {src:embed.src, loading:"lazy",
-            title:`Video: ${n.name}`, referrerPolicy:"strict-origin-when-cross-origin",
+            title:`Video: ${title}`, referrerPolicy:"strict-origin-when-cross-origin",
             allow:"autoplay; encrypted-media; picture-in-picture; fullscreen"})));
     }else if(/\.(mp4|webm|m4v|mov)(\?|#|$)/i.test(v.url)){
         box.append(el("video", {controls:true, playsInline:true, preload:"metadata", src:v.url}));
@@ -7368,11 +7530,11 @@ function newPageView(n){
                 v=>{ n.status = v; saveQuietly(); })),
             prop("Priority", pickList(NEW_PRIORITY, priorityOf(n)[0], "Priority", v=>{ n.priority = v; saveQuietly(); })),
             prop("Hands", hold(n.from), el("span", {className:"arrow", textContent:"→"}), hold(n.to))),
-        main ? videoView(n, main)
+        main ? videoView(main, newMoveVideoKey(n, main), n.name)
              : el("p", {className:"nm-empty", textContent:"No video yet. Edit the move to add one from your camera roll or a link."}),
         el("h3", {className:"log-h", textContent:"Steps"}),
         steps ?? el("p", {className:"mp-text", textContent:"No steps yet. Edit the move to write them down by counts."}),
-        ...(more.length ? [el("h3", {className:"log-h", textContent:"More examples"}), ...more.map(v=>videoView(n, v))] : []),
+        ...(more.length ? [el("h3", {className:"log-h", textContent:"More examples"}), ...more.map(v=>videoView(v, newMoveVideoKey(n, v), n.name))] : []),
         el("h3", {className:"log-h", textContent:"Feel"}),
         feelView(n.name),
         notesEditor(n.name),
@@ -7654,20 +7816,16 @@ const blobToDataUrl = blob=>new Promise((resolve, reject)=>{
     r.readAsDataURL(blob);
 });
 
-// [IndexedDB key, video] for every new move's video from the camera roll
+// [IndexedDB key, video] for every video from the camera roll in the log
+const logFiles = ()=>logEntries.flatMap(e=>e.videos.filter(v=>v.kind === "file").map(v=>[logVideoKey(e, v), v]));
+// ... and for every new move's video from the camera roll
 const newMoveFiles = ()=>newMoves.flatMap(n=>(n.videos ?? []).filter(v=>v.kind === "file").map(v=>[newMoveVideoKey(n, v), v]));
 
 async function makeBackup(withVideos){
     const data = Object.fromEntries(storedKeys().map(k=>[k, localStorage.getItem(k)]));
     const videos = {};
     if(withVideos){
-        for(const e of logEntries.filter(e=>e.video)){
-            try{
-                const blob = await videoStore.get(e.id);
-                if(blob) videos[e.id] = { name:e.video.name, type:blob.type || e.video.type, data:await blobToDataUrl(blob) };
-            }catch{ /* skip a video that can't be read */ }
-        }
-        for(const [key, v] of newMoveFiles()){
+        for(const [key, v] of [...logFiles(), ...newMoveFiles()]){
             try{
                 const blob = await videoStore.get(key);
                 if(blob) videos[key] = { name:v.name, type:blob.type || v.type, data:await blobToDataUrl(blob) };
@@ -7740,7 +7898,7 @@ function renderBackup(){
     if(dom.backupPage.hidden) return;
     const keys = storedKeys();
     const data = Object.fromEntries(keys.map(k=>[k, localStorage.getItem(k)]));
-    const withVideo = [...logEntries.filter(e=>e.video).map(e=>e.video), ...newMoveFiles().map(([, v])=>v)];
+    const withVideo = [...logFiles(), ...newMoveFiles()].map(([, v])=>v);
     const videoBytes = withVideo.reduce((n, v)=>n + (v.size || 0), 0);
     const what = backupSummary(data, withVideo.length);
     const last = localStorage.getItem(LAST_BACKUP_KEY);
