@@ -3,6 +3,17 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<!-- Light or dark, decided before anything is drawn (no white flash):
+     your choice from the menu, or the device's setting -->
+<script>
+(function(){
+    var t;
+    try{ t = localStorage.getItem("mj-moves:theme"); }catch(e){}
+    if(t !== "light" && t !== "dark") t = matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+    document.documentElement.dataset.theme = t;
+})();
+</script>
 <title>Dance State Transition Graph</title>
 
 <!-- Bundled & pinned: the comet and step highlight read Cytoscape internals
@@ -27,10 +38,53 @@
     --empty-slot: #dcdcdc;    /* outline of an empty hand position */
     --lead: #2d7ff9;          /* lead's hands */
     --follow: #7d8894;        /* follow's hands (silver; 3.6:1 with white) */
+    --surface: white;         /* bars, menu, cards, panels */
+    --on-accent: #222;        /* text on orange, in both themes */
+    --control-border: #ccc;
+    --hover: #f0f0f0;
+    --active: #e6e6e6;
+    --chip: #f1f1f1;          /* chips, tracks, empty cells */
+    --tint: rgba(0,0,0,0.07);
+    --arrow: #aaa;
+    --muted-text: #777;
+    --star-off: #b5b5b5;
+    --switch-off: #c8c8c8;
+    --active-row: #eef5ff;
+    color-scheme: light;
+}
+
+/* Dark: the same roles, stepped for a dark background */
+:root[data-theme="dark"]{
+    color-scheme: dark;
+    --accent-text: #ffb347;
+    --accent-soft: #3a2a12;
+    --ink: #e8e8e8;
+    --ink-soft: #b5b5b5;
+    --ink-faded: #8f8f8f;
+    --line: #80848a;
+    --line-faded: #3b3e43;
+    --rule: #303238;
+    --canvas: #15161a;
+    --node-border: #4a4e55;
+    --empty-slot: #555960;
+    --lead: #4f95ff;
+    --follow: #a7b1bc;
+    --surface: #1f2125;
+    --control-border: #474b52;
+    --hover: #2b2e33;
+    --active: #353840;
+    --chip: #2b2e33;
+    --tint: rgba(255,255,255,0.1);
+    --arrow: #6f737a;
+    --muted-text: #8f8f8f;
+    --star-off: #61656c;
+    --switch-off: #555960;
+    --active-row: #1f3350;
 }
 
 html, body {
     margin:0;
+    background:var(--surface);
     height:100%;
     font-family:var(--font);
     color:var(--ink);
@@ -52,7 +106,7 @@ html, body {
     padding:8px 10px;
     padding-top:calc(8px + env(safe-area-inset-top));
     border-bottom:1px solid var(--rule);
-    background:white;
+    background:var(--surface);
     flex:0 0 auto;
 }
 
@@ -61,20 +115,20 @@ html, body {
     min-height:44px;
     font-size:20px;
     color:var(--ink);
-    border:1px solid #ccc;
+    border:1px solid var(--control-border);
     border-radius:8px;
-    background:white;
+    background:var(--surface);
     cursor:pointer;
     -webkit-tap-highlight-color:transparent;
 }
 
 #topbar button:hover,
 #topbar button:focus-visible{
-    background:#f0f0f0;
+    background:var(--hover);
 }
 
 #topbar button:active{
-    background:#e6e6e6;
+    background:var(--active);
 }
 
 #menuBtn{
@@ -140,7 +194,7 @@ html, body {
 
     #comboTitle.placeholder{
         font-weight:normal;
-        color:#777;
+        color:var(--muted-text);
     }
 
     #caption{
@@ -165,7 +219,7 @@ html, body {
 }
 
 #caption .arrow{
-    color:#aaa;
+    color:var(--arrow);
 }
 
 .note{
@@ -190,7 +244,7 @@ html, body {
     margin-left:5px;
     padding:0 5px;
     border-radius:8px;
-    background:rgba(0,0,0,0.07);
+    background:var(--tint);
 }
 
 .combo-moves .variant{
@@ -202,7 +256,7 @@ html, body {
     border-radius:10px;
     padding:0 7px;
     line-height:1.5;
-    background:#f1f1f1;
+    background:var(--chip);
     white-space:nowrap;
     transition:background-color 0.15s, color 0.15s;
 }
@@ -215,7 +269,7 @@ html, body {
 }
 
 #caption .placeholder{
-    color:#777;
+    color:var(--muted-text);
 }
 
 #graph{
@@ -265,7 +319,7 @@ html, body {
     left:0;
     bottom:0;
     width:min(320px, 85vw);
-    background:white;
+    background:var(--surface);
     box-shadow:2px 0 12px rgba(0,0,0,0.2);
     transform:translateX(-105%);
     transition:transform 0.2s ease-out;
@@ -375,7 +429,7 @@ body.menu-open #backdrop{
 }
 
 .combo:hover{
-    background:#eef5ff;
+    background:var(--active-row);
 }
 
 .combo.active{
@@ -411,7 +465,7 @@ body.menu-open #backdrop{
     border:none;
     border-radius:8px;
     background:none;
-    color:#b5b5b5;
+    color:var(--star-off);
     font:inherit;
     cursor:pointer;
     -webkit-tap-highlight-color:transparent;
@@ -419,7 +473,7 @@ body.menu-open #backdrop{
 
 .star:hover,
 .tick:hover{
-    background:#f0f0f0;
+    background:var(--hover);
 }
 
 .star{
@@ -488,7 +542,7 @@ body.menu-open #backdrop{
 /* favourite the combination being shown (top bar) */
 #topbar #favBtn{
     font-size:22px;
-    color:#b5b5b5;
+    color:var(--star-off);
 }
 
 #topbar #favBtn.on{
@@ -521,7 +575,7 @@ body.menu-open #backdrop{
     --s-blue:#2a78d6;           /* series 1 (beginner, moves that link) */
     --s-orange:#eb6834;         /* series 2 (intromediate, hand changes) */
     --s-aqua:#1baf7a;           /* series 3 (alternative endings) */
-    --s-track:#ececec;
+    --s-track:var(--chip);
     position:fixed;
     inset:0;
     z-index:30;
@@ -543,7 +597,7 @@ body.menu-open #backdrop{
     justify-content:space-between;
     padding:8px 10px 8px 20px;
     padding-top:calc(8px + env(safe-area-inset-top));
-    background:white;
+    background:var(--surface);
     border-bottom:1px solid var(--rule);
 }
 
@@ -564,7 +618,7 @@ body.menu-open #backdrop{
 }
 
 .overlay-close:hover{
-    background:#f0f0f0;
+    background:var(--hover);
 }
 
 #statsBody{
@@ -583,7 +637,7 @@ body.menu-open #backdrop{
     padding:18px 20px 20px;
     border:1px solid var(--rule);
     border-radius:12px;
-    background:white;
+    background:var(--surface);
 }
 
 .stats-stack{
@@ -783,7 +837,7 @@ body.menu-open #backdrop{
     border-radius:6px;
     font-size:17px;
     font-weight:600;
-    background:#f3f3f3;
+    background:var(--chip);
     color:var(--ink-faded);
 }
 
@@ -1004,7 +1058,7 @@ body.menu-open #backdrop{
     box-sizing:border-box;
     border:1px solid var(--rule);
     border-radius:14px;
-    background:white;
+    background:var(--surface);
     box-shadow:0 8px 30px rgba(0,0,0,0.15);
 }
 
@@ -1026,10 +1080,18 @@ body.menu-open #backdrop{
     }
 }
 
+/* the name and ✕ stay at the top while the panel scrolls */
 .mp-head{
+    position:sticky;
+    top:-16px;                  /* the panel's top padding */
+    z-index:1;
     display:flex;
     align-items:flex-start;
     gap:8px;
+    margin:-16px -18px 0;
+    padding:16px 18px 10px;
+    border-bottom:1px solid var(--rule);
+    background:var(--surface);
 }
 
 .mp-head h2{
@@ -1050,7 +1112,7 @@ body.menu-open #backdrop{
 }
 
 .mp-head button:hover{
-    background:#f0f0f0;
+    background:var(--hover);
 }
 
 .mp-level{
@@ -1112,9 +1174,9 @@ body.menu-open #backdrop{
 .mp-chips button{
     min-height:32px;
     padding:2px 10px;
-    border:1px solid #ccc;
+    border:1px solid var(--control-border);
     border-radius:16px;
-    background:white;
+    background:var(--surface);
     color:var(--ink);
     font:inherit;
     font-size:14px;
@@ -1122,7 +1184,7 @@ body.menu-open #backdrop{
 }
 
 .mp-chips button:hover{
-    background:#f5f5f5;
+    background:var(--hover);
 }
 
 .mp-chips button.combo-chip{
@@ -1200,7 +1262,7 @@ body.menu-open #backdrop{
     padding:0;
     border:none;
     border-radius:8px;
-    background:#eeeeee;
+    background:var(--chip);
     font-size:17px;
     line-height:1;
     cursor:pointer;
@@ -1404,7 +1466,7 @@ body.menu-open #backdrop{
     padding:0 7px;
     border-radius:10px;
     line-height:1.5;
-    background:#f1f1f1;
+    background:var(--chip);
 }
 
 .build-actions{
@@ -1444,9 +1506,9 @@ body.menu-open #backdrop{
     align-items:flex-start;
     min-height:36px;
     padding:4px 10px;
-    border:1px solid #ccc;
+    border:1px solid var(--control-border);
     border-radius:8px;
-    background:white;
+    background:var(--surface);
     color:var(--ink);
     font:inherit;
     font-size:14px;
@@ -1455,7 +1517,7 @@ body.menu-open #backdrop{
 }
 
 .build-move:hover{
-    background:#f5f5f5;
+    background:var(--hover);
 }
 
 .build-move.flows{
@@ -1483,7 +1545,7 @@ body.menu-open #backdrop{
     padding:14px 16px;
     border-left:4px solid var(--accent);
     border-radius:0 10px 10px 0;
-    background:white;
+    background:var(--surface);
     font-size:15px;
     line-height:1.5;
     color:var(--ink-soft);
@@ -1514,7 +1576,7 @@ body.menu-open #backdrop{
     width:84px;
     min-height:40px;
     padding:0 8px;
-    border:1px solid #ccc;
+    border:1px solid var(--control-border);
     border-radius:8px;
     font:inherit;
     font-size:16px;
@@ -1605,7 +1667,7 @@ body.menu-open #backdrop{
 .caller-moves .cm{
     padding:6px 14px;
     border-radius:14px;
-    background:#ececec;
+    background:var(--chip);
     font-size:clamp(18px, 5vw, 26px);
     font-weight:600;
     transition:background-color 0.2s, color 0.2s;
@@ -1613,7 +1675,7 @@ body.menu-open #backdrop{
 
 .caller-moves .cm.now{
     background:var(--accent);
-    color:var(--ink);
+    color:var(--on-accent);
 }
 
 .caller-moves .cm.done{
@@ -1631,7 +1693,7 @@ body.menu-open #backdrop{
 }
 
 .caller-moves .arrow{
-    color:#aaa;
+    color:var(--arrow);
     font-size:20px;
 }
 
@@ -1694,7 +1756,7 @@ body.menu-open #backdrop{
     justify-content:flex-end;
     height:70px;
     border-radius:6px;
-    background:#f3f3f3;
+    background:var(--chip);
     overflow:hidden;
 }
 
@@ -1715,7 +1777,7 @@ body.menu-open #backdrop{
     padding:24px 20px;
     border:1px solid var(--rule);
     border-radius:16px;
-    background:white;
+    background:var(--surface);
     box-shadow:0 6px 24px rgba(0,0,0,0.06);
 }
 
@@ -1784,7 +1846,7 @@ body.menu-open #backdrop{
     min-height:150px;
     padding:10px 12px;
     box-sizing:border-box;
-    border:1px solid #ccc;
+    border:1px solid var(--control-border);
     border-radius:10px;
     font:inherit;
     font-size:15px;
@@ -1819,8 +1881,35 @@ body.menu-open #backdrop{
 }
 
 .grade-again{ border:1px solid #e9a3a3; background:#fdecec; color:#9b1c1c; }
-.grade-ok{ border:1px solid #ccc; background:white; color:var(--ink); }
+.grade-ok{ border:1px solid var(--control-border); background:var(--surface); color:var(--ink); }
 .grade-perfect{ border:1px solid #8fd0a6; background:#e8f7ee; color:#14632f; }
+
+/* ---------- Dark theme: pale badges and buttons get dark versions ---------- */
+:root[data-theme="dark"] .mp-level{ background:#1c2e48; color:#9ec5f4; }
+:root[data-theme="dark"] .mp-level.intromediate{ background:#43261a; color:#f5a37f; }
+:root[data-theme="dark"] .grade-again{ border-color:#7a2f2f; background:#3a1d1d; color:#f3a1a1; }
+:root[data-theme="dark"] .grade-perfect{ border-color:#2f6b45; background:#173322; color:#8fd9a8; }
+:root[data-theme="dark"] .meter span.rest{ background:#1c2e48; }
+:root[data-theme="dark"] .feel-scale button.on{ filter:none; }
+:root[data-theme="dark"] #statsTip,
+:root[data-theme="dark"] #toast{ background:#3a3d43; }
+
+/* Appearance: Auto / Light / Dark, at the bottom of the menu */
+.theme-setting{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:10px;
+    min-height:44px;
+    margin-top:8px;
+    font-size:15px;
+}
+
+.theme-setting .seg button{
+    min-width:0;
+    padding:0 12px;
+    font-size:14px;
+}
 
 /* number column used for a label in the Favourites list */
 .combo-num.tag{
@@ -1855,13 +1944,13 @@ body.menu-open #backdrop{
     border:none;
     border-radius:8px;
     background:none;
-    color:#9a9a9a;
+    color:var(--muted-text);
     font-size:16px;
     cursor:pointer;
 }
 
 .rename:hover{
-    background:#f0f0f0;
+    background:var(--hover);
 }
 
 .rename-input{
@@ -1897,7 +1986,7 @@ body.menu-open #backdrop{
 
 .seg{
     display:flex;
-    border:1px solid #ccc;
+    border:1px solid var(--control-border);
     border-radius:8px;
     overflow:hidden;
 }
@@ -1906,8 +1995,8 @@ body.menu-open #backdrop{
     min-width:44px;
     min-height:40px;
     border:none;
-    border-left:1px solid #ccc;
-    background:white;
+    border-left:1px solid var(--control-border);
+    background:var(--surface);
     color:var(--ink);
     font:inherit;
     cursor:pointer;
@@ -1919,6 +2008,7 @@ body.menu-open #backdrop{
 
 .seg button[aria-checked="true"]{
     background:var(--accent);
+    color:var(--on-accent);
     font-weight:bold;
 }
 
@@ -1947,7 +2037,7 @@ body.menu-open #backdrop{
     border:none;
     border-radius:8px;
     background:var(--accent);
-    color:var(--ink);           /* dark text on orange: 9:1 */
+    color:var(--on-accent);     /* dark text on orange: 9:1 */
     font:inherit;
     font-weight:bold;
     cursor:pointer;
@@ -1959,16 +2049,16 @@ body.menu-open #backdrop{
 
 .secondary{
     min-height:44px;
-    border:1px solid #ccc;
+    border:1px solid var(--control-border);
     border-radius:8px;
-    background:white;
+    background:var(--surface);
     color:var(--ink);
     font:inherit;
     cursor:pointer;
 }
 
 .secondary:hover{
-    background:#f5f5f5;
+    background:var(--hover);
 }
 
 .primary:disabled,
@@ -2034,7 +2124,7 @@ body.menu-open #backdrop{
 
 .hint{
     font-size:13px;
-    color:#666;
+    color:var(--muted-text);
 }
 
 .toggle{
@@ -2063,7 +2153,7 @@ body.menu-open #backdrop{
     width:40px;
     height:24px;
     border-radius:12px;
-    background:#c8c8c8;
+    background:var(--switch-off);
     transition:background-color 0.15s;
 }
 
@@ -2264,6 +2354,11 @@ Statistics
 <span class="switch" aria-hidden="true"></span>
 Show intromediate moves
 </label>
+
+<div class="theme-setting">
+<span id="themeLabel">Appearance</span>
+<div class="seg" id="themeGroup" role="radiogroup" aria-labelledby="themeLabel"></div>
+</div>
 
 <p class="credit"><a href="https://fevah.dance/" target="_blank" rel="noopener">Unofficially inspired by Fevah Modern Jive</a></p>
 </nav>
@@ -2482,14 +2577,19 @@ function planMoves(moves, {loops=false}={}){
 const ROOT_STYLE = getComputedStyle(document.documentElement);
 const token = name => ROOT_STYLE.getPropertyValue(`--${name}`).trim();
 const FONT = token("font");
-const COLOR = {
-    ink: token("ink"),         inkFaded: token("ink-faded"),
-    line: token("line"),       lineFaded: token("line-faded"),
-    accent: token("accent"),   accentText: token("accent-text"),
-    canvas: token("canvas"),
-    nodeBorder: token("node-border"), emptySlot: token("empty-slot"),
-    lead: token("lead"),       follow: token("follow")
-};
+// Read again when the theme changes (see applyTheme)
+const COLOR = {};
+function readColors(){
+    Object.assign(COLOR, {
+        ink: token("ink"),         inkFaded: token("ink-faded"),
+        line: token("line"),       lineFaded: token("line-faded"),
+        accent: token("accent"),   accentText: token("accent-text"),
+        canvas: token("canvas"),   surface: token("surface"),
+        nodeBorder: token("node-border"), emptySlot: token("empty-slot"),
+        lead: token("lead"),       follow: token("follow")
+    });
+}
+readColors();
 const LINE_HEIGHT = 1.3;           // label line height, as a multiple of font size
 const LABEL_SIZE = { normal:15, compact:19 };
 
@@ -2506,7 +2606,7 @@ const fitPadding = () => isCompact() ? 20 : 50;
 // =====================================================================
 
 const dom = Object.fromEntries(
-    ["container","graph","cy","caption","comboTitle","stepHighlight","menu","menuBtn","closeBtn","classSection","showIntro","superSlot","toast","randomSection","lengthGroup","loopCombo","generateBtn","favBtn","shareBtn","favList","favCount","movePanel","shuffleBtn","replaceBtn","avoidChanges",
+    ["container","graph","cy","caption","comboTitle","stepHighlight","menu","menuBtn","closeBtn","classSection","showIntro","superSlot","toast","randomSection","lengthGroup","loopCombo","generateBtn","favBtn","shareBtn","favList","favCount","movePanel","themeGroup","shuffleBtn","replaceBtn","avoidChanges",
      "backdrop","comboList","buildSection","buildSeq","buildUndo","buildClear","buildFromCurrent","buildMoves",
      "callerBtn","callerPage","callerBody","callerClose","flashBtn","flashPage","flashBody","flashClose","statsFx","statsBtn","statsPage","statsBody","statsClose","statsTip","prevBtn","nextBtn"].map(id=>[id, document.getElementById(id)])
 );
@@ -2578,8 +2678,9 @@ function slotSvg(slot, filled){
             font-size="15" font-weight="bold" fill="white">${slot.letter}</text></g>`;
 }
 
+const nodeIconCache = new Map();         // cleared when the theme changes
 const nodeIcon = (()=>{
-    const cache = new Map();
+    const cache = nodeIconCache;
     return id=>{
         if(!cache.has(id)){
             const filled = new Set(NODE_HANDS[id]);
@@ -2670,11 +2771,16 @@ const cy = cytoscape({
     container: dom.cy,
     elements: buildElements(),
     layout: { name:"preset" },
-    style: [
+    style: cyStyle()
+});
+
+// The graph's styles, from the current theme's colours.
+function cyStyle(){
+    return [
         { selector:"node.state", style:{
             "shape":"round-rectangle",
             "width":NODE_SIZE, "height":NODE_SIZE,
-            "background-color":"white",
+            "background-color":COLOR.surface,
             "border-width":1, "border-color":COLOR.nodeBorder,
             "background-image":"data(icon)",
             "background-fit":"contain",
@@ -2758,8 +2864,8 @@ const cy = cytoscape({
             "events":"no",
             "z-index":1000
         }}
-    ]
-});
+    ];
+}
 
 // --- Cytoscape internals ------------------------------------------------
 // The comet and the per-line highlight need each edge's drawn curve and
@@ -3735,7 +3841,7 @@ function positionsCard(){
             if(names.length){
                 const step = Math.min(BLUE_STEPS.length-1, Math.round(names.length/max*(BLUE_STEPS.length-1)));
                 cell.style.background = BLUE_STEPS[step];
-                cell.style.color = step >= 3 ? "white" : "var(--ink)";
+                cell.style.color = step >= 3 ? "white" : "#222";
             }
             grid.append(tip(cell, plural(names.length, "move"),
                 `${POSITION_NAMES[from]} → ${POSITION_NAMES[to]}${names.length ? ": " + names.join(", ") : ""}`));
@@ -4566,11 +4672,11 @@ function callerSetupView(){
 
 function callerRunView(){
     const R = 52, C = 2*Math.PI*R;
-    const ring = svgNode("circle", {cx:60, cy:60, r:R, fill:"none", stroke:"var(--accent)", "stroke-width":8,
+    const ring = svgNode("circle", {cx:60, cy:60, r:R, fill:"none", style:"stroke:var(--accent)", "stroke-width":8,
         "stroke-linecap":"round", "stroke-dasharray":C});
     const clock = el("div", {className:"caller-clock"});
     clock.append(svgNode("svg", {viewBox:"0 0 120 120"},
-        svgNode("circle", {cx:60, cy:60, r:R, fill:"none", stroke:"#ececec", "stroke-width":8}), ring));
+        svgNode("circle", {cx:60, cy:60, r:R, fill:"none", style:"stroke:var(--chip)", "stroke-width":8}), ring));
     const num = el("div", {className:"num"});
     clock.append(num);
     const phase = el("div", {className:"caller-phase"});
@@ -5062,6 +5168,7 @@ function showMoveDetails(name){
             "Videos", el("span", {ariaHidden:"true", textContent:"↗"})));
 
     dom.movePanel.replaceChildren(...parts);
+    dom.movePanel.dataset.move = name;
     dom.movePanel.hidden = false;
     dom.movePanel.scrollTop = 0;
 }
@@ -5073,6 +5180,49 @@ function closeMoveDetails(){
 document.addEventListener("keydown", e=>{
     if(e.key === "Escape" && dom.callerPage.hidden && dom.flashPage.hidden && dom.statsPage.hidden) closeMoveDetails();
 });
+
+
+// =====================================================================
+// Appearance: Auto (follows the device), Light or Dark. The page head
+// sets the theme before the first draw; this keeps it up to date.
+// =====================================================================
+
+const THEME_KEY = "mj-moves:theme";
+const DARK_QUERY = window.matchMedia("(prefers-color-scheme: dark)");
+const themeChoice = ()=>{ const t = localStorage.getItem(THEME_KEY); return t === "light" || t === "dark" ? t : "auto"; };
+
+function applyTheme(){
+    const choice = themeChoice();
+    const theme = choice === "auto" ? (DARK_QUERY.matches ? "dark" : "light") : choice;
+    const changed = document.documentElement.dataset.theme !== theme;
+    document.documentElement.dataset.theme = theme;
+    dom.themeGroup.querySelectorAll("button").forEach(b=>b.setAttribute("aria-checked", b.dataset.theme === choice));
+    if(!changed) return;
+    // the graph is drawn on a canvas: give it the new colours and icons
+    readColors();
+    nodeIconCache.clear();
+    cy.nodes(".state").forEach(n=>n.data("icon", nodeIcon(n.id())));
+    cy.style().fromJson(cyStyle()).update();
+    renderCaption();
+    if(!dom.movePanel.hidden && dom.movePanel.dataset.move) showMoveDetails(dom.movePanel.dataset.move);
+    if(!dom.statsPage.hidden) openStats();
+}
+
+for(const [value, label] of [["auto", "Auto"], ["light", "Light"], ["dark", "Dark"]]){
+    const b = el("button", {type:"button", textContent:label});
+    b.dataset.theme = value;
+    b.setAttribute("role", "radio");
+    b.addEventListener("click", ()=>{
+        try{
+            if(value === "auto") localStorage.removeItem(THEME_KEY);
+            else localStorage.setItem(THEME_KEY, value);
+        }catch{ /* can't save: still switch for this visit */ }
+        applyTheme();
+    });
+    dom.themeGroup.append(b);
+}
+DARK_QUERY.addEventListener("change", applyTheme);
+applyTheme();
 
 renderBuilder();
 
