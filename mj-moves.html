@@ -4,13 +4,15 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="light dark">
-<!-- Light or dark, decided before anything is drawn (no white flash):
-     your choice from the menu, or the device's setting -->
+<!-- Light or dark, decided before anything is drawn (no flash): your
+     choice from the menu; dark unless you've chosen otherwise ("auto"
+     follows the device) -->
 <script>
 (function(){
     var t;
     try{ t = localStorage.getItem("mj-moves:theme"); }catch(e){}
-    if(t !== "light" && t !== "dark") t = matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+    if(t === "auto") t = matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+    else if(t !== "light") t = "dark";
     document.documentElement.dataset.theme = t;
 })();
 </script>
@@ -1209,7 +1211,7 @@ body.menu-open #backdrop{
     min-height:44px;
     border-radius:10px;
     background:var(--ink);
-    color:white;
+    color:var(--surface);       /* inverse of the panel, in both themes */
     font-weight:600;
     text-decoration:none;
 }
@@ -5183,13 +5185,15 @@ document.addEventListener("keydown", e=>{
 
 
 // =====================================================================
-// Appearance: Auto (follows the device), Light or Dark. The page head
-// sets the theme before the first draw; this keeps it up to date.
+// Appearance: Dark (the default), Light, or Auto (follows the device).
+// The page head sets the theme before the first draw; this keeps it up
+// to date.
 // =====================================================================
 
 const THEME_KEY = "mj-moves:theme";
 const DARK_QUERY = window.matchMedia("(prefers-color-scheme: dark)");
-const themeChoice = ()=>{ const t = localStorage.getItem(THEME_KEY); return t === "light" || t === "dark" ? t : "auto"; };
+// dark unless you've chosen Light or Auto
+const themeChoice = ()=>{ const t = localStorage.getItem(THEME_KEY); return t === "light" || t === "auto" ? t : "dark"; };
 
 function applyTheme(){
     const choice = themeChoice();
@@ -5213,10 +5217,7 @@ for(const [value, label] of [["auto", "Auto"], ["light", "Light"], ["dark", "Dar
     b.dataset.theme = value;
     b.setAttribute("role", "radio");
     b.addEventListener("click", ()=>{
-        try{
-            if(value === "auto") localStorage.removeItem(THEME_KEY);
-            else localStorage.setItem(THEME_KEY, value);
-        }catch{ /* can't save: still switch for this visit */ }
+        try{ localStorage.setItem(THEME_KEY, value); }catch{ /* can't save: still switch for this visit */ }
         applyTheme();
     });
     dom.themeGroup.append(b);
