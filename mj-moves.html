@@ -5,14 +5,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="light dark">
 <!-- Light or dark, decided before anything is drawn (no flash): your
-     choice from the menu; dark unless you've chosen otherwise ("auto"
-     follows the device) -->
+     choice from the menu, or the device's setting ("auto", the default) -->
 <script>
 (function(){
     var t;
     try{ t = localStorage.getItem("mj-moves:theme"); }catch(e){}
-    if(t === "auto") t = matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
-    else if(t !== "light") t = "dark";
+    if(t !== "light" && t !== "dark") t = matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
     document.documentElement.dataset.theme = t;
 })();
 </script>
@@ -6203,15 +6201,15 @@ document.addEventListener("keydown", e=>{
 
 
 // =====================================================================
-// Appearance: Dark (the default), Light, or Auto (follows the device).
+// Appearance: Auto (the default: follows the device), Light or Dark.
 // The page head sets the theme before the first draw; this keeps it up
 // to date.
 // =====================================================================
 
 const THEME_KEY = "mj-moves:theme";
 const DARK_QUERY = window.matchMedia("(prefers-color-scheme: dark)");
-// dark unless you've chosen Light or Auto
-const themeChoice = ()=>{ const t = localStorage.getItem(THEME_KEY); return t === "light" || t === "auto" ? t : "dark"; };
+// Auto (follow the device) unless you've chosen Light or Dark
+const themeChoice = ()=>{ const t = localStorage.getItem(THEME_KEY); return t === "light" || t === "dark" ? t : "auto"; };
 
 function applyTheme(){
     const choice = themeChoice();
