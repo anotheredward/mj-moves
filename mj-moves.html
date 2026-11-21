@@ -314,6 +314,23 @@ body.menu-open #backdrop{
     transform:rotate(90deg);
 }
 
+/* number of items in a section, beside its heading */
+.count-badge{
+    min-width:24px;
+    padding:1px 8px;
+    border-radius:999px;
+    box-sizing:border-box;
+    background:var(--accent-soft);
+    color:var(--accent-text);
+    font-size:14px;
+    font-weight:700;
+    text-align:center;
+}
+
+.count-badge[hidden]{
+    display:none;
+}
+
 .menu-section h2{
     margin:0;
     font-size:20px;
@@ -1949,7 +1966,7 @@ body.menu-open #backdrop{
 </details>
 
 <details id="favSection" class="menu-section" open>
-<summary><h2>Favourites</h2></summary>
+<summary><h2>Favourites</h2><span id="favCount" class="count-badge" hidden></span></summary>
 <div id="favList"></div>
 </details>
 
@@ -2203,7 +2220,7 @@ const fitPadding = () => isCompact() ? 20 : 50;
 // =====================================================================
 
 const dom = Object.fromEntries(
-    ["container","graph","cy","caption","comboTitle","stepHighlight","menu","menuBtn","closeBtn","classSection","showIntro","superSlot","toast","randomSection","lengthGroup","loopCombo","generateBtn","favBtn","shareBtn","favList","shuffleBtn","replaceBtn","avoidChanges",
+    ["container","graph","cy","caption","comboTitle","stepHighlight","menu","menuBtn","closeBtn","classSection","showIntro","superSlot","toast","randomSection","lengthGroup","loopCombo","generateBtn","favBtn","shareBtn","favList","favCount","shuffleBtn","replaceBtn","avoidChanges",
      "backdrop","comboList","buildSection","buildSeq","buildUndo","buildClear","buildFromCurrent","buildMoves",
      "callerBtn","callerPage","callerBody","callerClose","flashBtn","flashPage","flashBody","flashClose","statsFx","statsBtn","statsPage","statsBody","statsClose","statsTip","prevBtn","nextBtn"].map(id=>[id, document.getElementById(id)])
 );
@@ -3226,6 +3243,9 @@ function renderFavourites(){
         row.append(statControls(combo, {rename:()=>startRename(combo, row)}));
         return row;
     });
+    dom.favCount.hidden = !rows.length;
+    dom.favCount.textContent = rows.length;
+    dom.favCount.setAttribute("aria-label", `${rows.length} favourite${rows.length === 1 ? "" : "s"}`);
     dom.favList.replaceChildren(...(rows.length ? rows
         : [el("p", {className:"fav-empty", textContent:"No favourites yet. Tap ☆ on a combination to add it."})]));
     markActiveLinks();
