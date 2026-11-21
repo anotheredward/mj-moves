@@ -260,8 +260,84 @@ moves.forEach(([move,from,to])=>{
 
 const elements=[];
 
+// ---------- Node icons: hand positions seen from above ----------
+// Each node is a 2x2 grid. Top row = follow (fingers pointing down),
+// bottom row = lead (fingers pointing up). Viewed from above with the
+// couple facing each other, the squares are always:
+//
+//     follow's R | follow's L
+//     lead's L   | lead's R
+//
+// Each node fills the squares for the hands that are joined.
+
+const HAND_SLOTS = {
+    tl:{ col:0, row:0, letter:"R" },
+    tr:{ col:1, row:0, letter:"L" },
+    bl:{ col:0, row:1, letter:"L" },
+    br:{ col:1, row:1, letter:"R" }
+};
+
+const NODE_HANDS = {
+    lr:["tl","bl"],
+    rr:["tl","br"],
+    rl:["tr","br"],
+    bh:["tl","tr","bl","br"]
+};
+
+// Lead's hands are blue; follow's hands are silver (dark enough that the
+// white letter stays readable on a white node).
+const LEAD_COLOR = "#2d7ff9";
+const FOLLOW_COLOR = "#7d8894";
+const CELL = 46, GAP = 4, PAD = 2;          // icon is 2*CELL + GAP + 2*PAD square
+const ICON_SIZE = 2*CELL + GAP + 2*PAD;
+
+// A hand with fingers pointing up, drawn in a CELL x CELL box.
+// thumbRight: thumb on the right-hand side of the palm.
+function handShape(thumbRight, color){
+    const fingers = [
+        {x:10.0, top:8},
+        {x:16.8, top:4},
+        {x:23.6, top:5},
+        {x:30.4, top:9}
+    ].map(f=>`<rect x="${f.x}" y="${f.top}" width="5.6" height="${26-f.top}" rx="2.8"/>`).join("");
+    const thumb = thumbRight
+        ? `<ellipse cx="38.5" cy="29" rx="3.6" ry="7.5" transform="rotate(32 38.5 29)"/>`
+        : `<ellipse cx="7.5" cy="29" rx="3.6" ry="7.5" transform="rotate(-32 7.5 29)"/>`;
+    return `<g fill="${color}">${fingers}${thumb}<rect x="9.5" y="21" width="27" height="21" rx="7"/></g>`;
+}
+
+function slotSvg(slot, filled){
+    const x = PAD + slot.col*(CELL+GAP);
+    const y = PAD + slot.row*(CELL+GAP);
+    if(!filled){
+        return `<rect x="${x+3}" y="${y+3}" width="${CELL-6}" height="${CELL-6}" rx="6"
+            fill="none" stroke="#d4d4d4" stroke-width="1.5" stroke-dasharray="4 3"/>`;
+    }
+    // Thumbs point toward the centre line: left column -> right, right column -> left.
+    const thumbRight = slot.col===0;
+    const fingersDown = slot.row===0;
+    // Fingers-down hands are the fingers-up shape flipped vertically.
+    const color = fingersDown ? FOLLOW_COLOR : LEAD_COLOR;
+    const shape = fingersDown
+        ? `<g transform="translate(0 ${CELL}) scale(1 -1)">${handShape(thumbRight, color)}</g>`
+        : handShape(thumbRight, color);
+    const textY = fingersDown ? 18 : 38;     // centre of the palm
+    return `<g transform="translate(${x} ${y})">${shape}
+        <text x="23" y="${textY}" text-anchor="middle" font-family="sans-serif"
+            font-size="15" font-weight="bold" fill="white">${slot.letter}</text></g>`;
+}
+
+function nodeIcon(id){
+    const filled = new Set(NODE_HANDS[id]);
+    const body = Object.entries(HAND_SLOTS)
+        .map(([key,slot])=>slotSvg(slot, filled.has(key))).join("");
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${ICON_SIZE}" height="${ICON_SIZE}"
+        viewBox="0 0 ${ICON_SIZE} ${ICON_SIZE}">${body}</svg>`;
+    return "data:image/svg+xml;utf8," + encodeURIComponent(svg);
+}
+
 ["rr","lr","rl","bh"].forEach(id=>{
-    elements.push({ data:{ id, label:id } });
+    elements.push({ data:{ id, label:id, icon:nodeIcon(id) } });
 });
 
 groups.forEach(({from,to,moves:names},key)=>{
@@ -342,15 +418,17 @@ style:[
 {
 selector:"node",
 style:{
-'label':'data(label)',
-'text-valign':'center',
-'text-halign':'center',
-'background-color':'#2d7ff9',
-'color':'white',
-'font-size':18,
-'font-weight':'bold',
-'width':60,
-'height':60
+'shape':'round-rectangle',
+'width':84,
+'height':84,
+'background-color':'white',
+'border-width':2,
+'border-color':'#2d7ff9',
+'background-image':'data(icon)',
+'background-fit':'contain',
+'background-clip':'none',
+'background-width':'92%',
+'background-height':'92%'
 }
 },
 
