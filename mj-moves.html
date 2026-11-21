@@ -972,6 +972,237 @@ body.menu-open #backdrop{
     font-size:13px;
 }
 
+/* ---------- Practice calendar ---------- */
+.cal-layout{
+    display:grid;
+    grid-template-columns:repeat(auto-fit, minmax(min(100%, 320px), 1fr));
+    gap:20px 32px;
+}
+
+.cal-head{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    margin-bottom:8px;
+}
+
+.cal-title{
+    font-weight:600;
+}
+
+.cal-nav{
+    min-width:40px;
+    min-height:40px;
+    border:1px solid var(--control-border);
+    border-radius:8px;
+    background:var(--surface);
+    color:var(--ink);
+    font-size:20px;
+    cursor:pointer;
+}
+
+.cal-grid{
+    display:grid;
+    grid-template-columns:repeat(7, 1fr);
+    gap:4px;
+    margin-bottom:10px;
+}
+
+.cal-dow{
+    font-size:12px;
+    text-align:center;
+    color:var(--ink-faded);
+}
+
+.cal-day{
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    gap:2px;
+    aspect-ratio:1;
+    min-height:36px;
+    border:none;
+    border-radius:8px;
+    background:var(--chip);
+    color:var(--ink-soft);
+    font:inherit;
+    font-size:13px;
+    padding:0;
+}
+
+button.cal-day{
+    cursor:pointer;
+    color:var(--ink);
+    font-weight:600;
+}
+
+.cal-day.has-class{
+    background:var(--accent-soft);
+}
+
+.cal-day.has-practice:not(.has-class){
+    background:color-mix(in srgb, var(--s-blue) 22%, var(--surface));
+}
+
+.cal-day.today{
+    outline:2px solid var(--ink);
+    outline-offset:-2px;
+}
+
+.cal-dots{
+    display:flex;
+    gap:3px;
+    height:6px;
+}
+
+.cal-dots i{
+    width:6px;
+    height:6px;
+    border-radius:50%;
+}
+
+.cal-dots i.class{ background:var(--accent); }
+.cal-dots i.practice{ background:var(--s-blue); }
+
+.cal-tiles{
+    grid-template-columns:repeat(auto-fit, minmax(140px, 1fr));
+}
+
+.cal-tiles .value{
+    font-size:28px;
+}
+
+.cal-cols{
+    height:110px;
+}
+
+.colstack{
+    display:flex;
+    flex-direction:column;
+    gap:2px;
+    width:min(24px, 100%);
+    border-radius:4px 4px 0 0;
+    overflow:hidden;
+}
+
+.colstack div{
+    min-height:2px;
+}
+
+/* ---------- Feel statistics ---------- */
+.feel-stat{
+    margin-bottom:14px;
+}
+
+.feel-stat-head{
+    display:flex;
+    flex-wrap:wrap;
+    justify-content:space-between;
+    gap:4px 12px;
+    margin-bottom:6px;
+    font-size:14px;
+    font-weight:600;
+}
+
+.feel-stat-scale{
+    font-weight:400;
+    font-size:12px;
+    color:var(--ink-faded);
+}
+
+.feel-bar span{
+    justify-content:center;
+    font-size:14px;
+}
+
+.feel-grid{
+    display:grid;
+    grid-template-columns:auto repeat(3, minmax(0, 1fr));
+    gap:6px;
+    align-items:stretch;
+}
+
+.fg-col,
+.fg-row{
+    font-size:13px;
+    font-weight:600;
+    color:var(--ink-soft);
+    text-transform:capitalize;
+}
+
+.fg-col{
+    text-align:center;
+}
+
+.fg-row{
+    display:flex;
+    align-items:center;
+    padding-right:4px;
+    white-space:nowrap;
+}
+
+.fg-cell{
+    display:flex;
+    flex-wrap:wrap;
+    align-content:flex-start;
+    gap:4px;
+    min-height:44px;
+    padding:6px;
+    border-radius:8px;
+    background:var(--chip);
+}
+
+.fg-cell.empty{
+    opacity:0.5;
+}
+
+.fg-move{
+    padding:3px 8px;
+    border:1px solid var(--control-border);
+    border-radius:12px;
+    background:var(--surface);
+    color:var(--ink);
+    font:inherit;
+    font-size:13px;
+    cursor:pointer;
+}
+
+.fg-move:hover{
+    border-color:var(--accent);
+}
+
+.cf-table{
+    display:grid;
+    grid-template-columns:auto repeat(3, minmax(0, 1fr));
+    gap:4px clamp(6px, 2vw, 12px);
+    align-items:center;
+}
+
+.cf-h{
+    font-size:12px;
+    font-weight:600;
+    color:var(--ink-faded);
+}
+
+.cf-num{
+    min-width:32px;
+    min-height:28px;
+    border:1px solid var(--accent);
+    border-radius:14px;
+    background:var(--accent-soft);
+    color:var(--ink);
+    font:inherit;
+    font-weight:600;
+    cursor:pointer;
+}
+
+.cf-emoji{
+    font-size:clamp(14px, 4vw, 18px);
+    letter-spacing:clamp(0px, 0.3vw, 2px);
+    white-space:nowrap;
+}
+
 /* columns: practice per combination */
 .cols{
     display:flex;
@@ -4186,17 +4417,319 @@ function practiceCard(){
     return section;
 }
 
+// ---------------------------------------------------------------------
+// More statistics: practice calendar (from the Practice Log), the feel of
+// the moves and combinations (your own Feel values), and flashcards.
+// ---------------------------------------------------------------------
+
+const FEEL_NAMES = { energy:"Energy", distance:"Distance", smoothness:"Smoothness" };
+const FEEL_STEPS = ["#9ec5f4", "#3987e5", "#184f95"];      // one hue, light -> dark, by scale position
+const feelScore = (name, key)=>FEEL[key].indexOf(feelOf(name)[key]);   // 0, 1, 2
+
+// Open a move's details from the statistics (which cover the graph).
+function statsToMove(name){
+    closeStats();
+    showMoveDetails(name);
+}
+
+// --- Practice calendar ------------------------------------------------
+
+let statsMonth = null;          // "YYYY-MM" shown in the calendar
+
+const weekKey = iso=>{
+    const [y, m, d] = iso.split("-").map(Number);
+    const day = new Date(y, m-1, d);
+    day.setDate(day.getDate() - ((day.getDay() + 6) % 7));     // back to Monday
+    return dayString(day);
+};
+
+function weekStreaks(){
+    const weeks = new Set(logEntries.map(e=>weekKey(e.date)));
+    const prev = k=>{ const [y, m, d] = k.split("-").map(Number); return dayString(new Date(y, m-1, d-7)); };
+    let current = 0;
+    let k = weekKey(today());
+    if(!weeks.has(k)) k = prev(k);              // this week isn't over yet
+    while(weeks.has(k)){ current++; k = prev(k); }
+    let longest = 0;
+    for(const w of weeks){
+        if(weeks.has(prev(w))) continue;        // not the start of a run
+        let n = 0, x = w;
+        const next = k=>{ const [y, m, d] = k.split("-").map(Number); return dayString(new Date(y, m-1, d+7)); };
+        while(weeks.has(x)){ n++; x = next(x); }
+        longest = Math.max(longest, n);
+    }
+    return { current, longest };
+}
+
+function openLogEntry(id){
+    closeStats();
+    logOpenId = id;
+    openPage(dom.logPage, dom.logClose);
+    renderLog();
+}
+
+function calendarCard(){
+    const section = card("Practice calendar", "From your Practice Log");
+    section.classList.add("wide");
+    const fill = ()=>{
+        section.querySelector(".cal-wrap")?.remove();
+        section.append(calendarBody());
+    };
+    const calendarBody = ()=>{
+        const now = today().slice(0, 7);
+        statsMonth ??= now;
+        const [y, m] = statsMonth.split("-").map(Number);
+        const byDay = Map.groupBy(logEntries, e=>e.date);
+        const inMonth = logEntries.filter(e=>e.date.startsWith(statsMonth));
+
+        // month grid, Monday first
+        const nav = (delta, text, label)=>{
+            const b = el("button", {type:"button", className:"cal-nav", textContent:text, ariaLabel:label});
+            b.addEventListener("click", ()=>{
+                const d = new Date(y, m-1 + delta, 1);
+                statsMonth = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2, "0")}`;
+                fill();
+            });
+            return b;
+        };
+        const head = el("div", {className:"cal-head"},
+            nav(-1, "‹", "Previous month"),
+            el("span", {className:"cal-title", textContent:new Date(y, m-1, 1).toLocaleDateString(undefined, {month:"long", year:"numeric"})}),
+            nav(+1, "›", "Next month"));
+        const grid = el("div", {className:"cal-grid"},
+            ...["Mon","Tue","Wed","Thu","Fri","Sat","Sun"].map(d=>el("span", {className:"cal-dow", textContent:d})));
+        const first = new Date(y, m-1, 1);
+        for(let i = 0; i < (first.getDay() + 6) % 7; i++) grid.append(el("span"));
+        const days = new Date(y, m, 0).getDate();
+        for(let d = 1; d <= days; d++){
+            const iso = `${statsMonth}-${String(d).padStart(2, "0")}`;
+            const entries = byDay.get(iso) || [];
+            const kinds = new Set(entries.map(e=>e.type));
+            const cls = ["cal-day"];
+            if(kinds.has("class")) cls.push("has-class");
+            if(kinds.has("practice")) cls.push("has-practice");
+            if(iso === today()) cls.push("today");
+            const cell = el(entries.length ? "button" : "span", {className:cls.join(" ")},
+                el("span", {textContent:d}),
+                el("span", {className:"cal-dots"}, ...[...kinds].map(k=>el("i", {className:k}))));
+            if(entries.length){
+                cell.type = "button";
+                const label = entries.map(e=>`${e.type === "class" ? "Class" : "Practice"}${e.notes.trim() ? `: ${e.notes.trim().split("\n")[0]}` : ""}`).join(" · ");
+                tip(cell, prettyDate(iso), label);
+                cell.addEventListener("click", ()=>openLogEntry(entries[0].id));
+            }
+            grid.append(cell);
+        }
+
+        // figures
+        const streak = weekStreaks();
+        const last = logEntries.length ? logEntries.map(e=>e.date).sort().at(-1) : null;
+        const ago = last ? daysAgo(last) : null;
+        const tile = (label, value, detail)=>el("div", {className:"stat-tile"},
+            el("div", {className:"label", textContent:label}),
+            el("div", {className:"value", textContent:value}),
+            ...(detail ? [el("div", {className:"detail", textContent:detail})] : []));
+        const monthClasses = inMonth.filter(e=>e.type === "class").length;
+        const tiles = el("div", {className:"stat-tiles cal-tiles"},
+            tile("This month", fmt(inMonth.length), `${monthClasses} class${monthClasses === 1 ? "" : "es"}, ${inMonth.length - monthClasses} practice`),
+            tile("Weeks in a row", fmt(streak.current), `Longest run: ${plural(streak.longest, "week")}`),
+            tile("Last session", ago === null ? "–" : ago === 0 ? "Today" : ago === 1 ? "Yesterday" : `${ago} days ago`,
+                 `${logEntries.length} ${logEntries.length === 1 ? "entry" : "entries"} in all · ${logEntries.filter(e=>e.video || e.link).length} with video`));
+
+        // sessions per month, last 6 months (stacked: class, practice)
+        const months = [...Array(6).keys()].map(i=>{
+            const d = new Date(); d.setDate(1); d.setMonth(d.getMonth() - (5 - i));
+            const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2, "0")}`;
+            const list = logEntries.filter(e=>e.date.startsWith(key));
+            return { key, label:d.toLocaleDateString(undefined, {month:"short"}),
+                     cls:list.filter(e=>e.type === "class").length, prac:list.filter(e=>e.type === "practice").length };
+        });
+        const max = Math.max(1, ...months.map(mo=>mo.cls + mo.prac));
+        const cols = el("div", {className:"cols cal-cols"});
+        const labels = el("div", {className:"col-labels"});
+        for(const mo of months){
+            const total = mo.cls + mo.prac;
+            cols.append(tip(el("div", {className:"col"},
+                    el("span", {className:"v", textContent:total || ""}),
+                    el("div", {className:"colstack", style:`height:${total/max*100}%`},
+                        ...(mo.prac ? [el("div", {style:`flex:${mo.prac};background:var(--s-blue)`})] : []),
+                        ...(mo.cls ? [el("div", {style:`flex:${mo.cls};background:var(--accent)`})] : []))),
+                `${mo.cls} class${mo.cls === 1 ? "" : "es"}, ${mo.prac} practice`, mo.label));
+            labels.append(el("span", {textContent:mo.label}));
+        }
+
+        // most logged combinations
+        const comboCounts = new Map();
+        for(const e of logEntries) for(const c of e.combos){
+            const k = c.moves.join(",");
+            comboCounts.set(k, { name:c.name, moves:c.moves, n:(comboCounts.get(k)?.n || 0) + 1 });
+        }
+        const topCombos = [...comboCounts.values()].sort((a,b)=>b.n - a.n).slice(0, 5);
+
+        const wrap = el("div", {className:"cal-wrap"},
+            el("div", {className:"cal-layout"},
+                el("div", {className:"cal-month"}, head, grid,
+                    legend([["var(--accent)", "Class"], ["var(--s-blue)", "Practice"]])),
+                el("div", {className:"cal-side"}, tiles,
+                    el("h3", {textContent:"Sessions per month", style:"margin-top:16px;font-size:15px"}),
+                    cols, labels,
+                    ...(topCombos.length ? [
+                        el("h3", {textContent:"Most logged combinations", style:"margin-top:16px;font-size:15px"}),
+                        el("div", {className:"mp-chips"}, ...topCombos.map(c=>{
+                            const b = el("button", {type:"button", className:"combo-chip", textContent:`${c.name} ×${c.n}`, title:c.moves.join(" → ")});
+                            b.addEventListener("click", ()=>{ closeStats(); state.preview = null; selectCombo(classCombo(c.moves) ?? { id:null, caption:"Log", moves:[...c.moves] }); });
+                            return b;
+                        }))] : []))));
+        if(!logEntries.length){
+            wrap.prepend(el("p", {className:"empty-note", textContent:
+                "Nothing logged yet. Add classes and practice sessions in the Practice Log and they'll show up here."}));
+        }
+        return wrap;
+    };
+    fill();
+    return section;
+}
+
+// --- Feel -------------------------------------------------------------
+
+function feelOverviewCard(){
+    const names = MOVES.map(m=>m.name);
+    const adjusted = names.filter(n=>myFeel[n]).length;
+    const bars = Object.keys(FEEL).map(key=>{
+        const groups = FEEL[key].map(v=>names.filter(n=>feelOf(n)[key] === v));
+        const bar = el("div", {className:"segbar feel-bar", role:"img",
+            ariaLabel:`${FEEL_NAMES[key]}: ` + FEEL[key].map((v,i)=>`${v} ${groups[i].length}`).join(", ")},
+            ...FEEL[key].map((v, i)=>{
+                const n = groups[i].length;
+                if(!n) return null;
+                const seg = el("span", {style:`flex:${n};background:${FEEL_STEPS[i]};color:${i ? "white" : "#222"}`,
+                    textContent:`${FEEL_EMOJI[key][v]} ${n}`});
+                return tip(seg, `${plural(n, "move")} · ${v}`, groups[i].join(", "));
+            }).filter(Boolean));
+        return el("div", {className:"feel-stat"},
+            el("div", {className:"feel-stat-head"},
+                el("span", {textContent:FEEL_NAMES[key]}),
+                el("span", {className:"feel-stat-scale", textContent:FEEL[key].map(v=>`${FEEL_EMOJI[key][v]} ${v}`).join("  ·  ")})),
+            bar);
+    });
+    // which feels go together
+    const pairs = [];
+    for(const e of FEEL.energy) for(const s of FEEL.smoothness){
+        const list = names.filter(n=>feelOf(n).energy === e && feelOf(n).smoothness === s);
+        if(list.length) pairs.push([list.length, `${e} energy and ${s === "normal" ? "normal smoothness" : s}`]);
+    }
+    pairs.sort((a,b)=>b[0] - a[0]);
+    return card("Feel of the moves", `How all ${MOVES.length} moves feel${adjusted ? ", with your own values" : ""}`,
+        ...bars,
+        note(`The most common feel is `, bold(pairs[0][1]), ` (${plural(pairs[0][0], "move")}). `,
+             adjusted ? `You've set your own feel for ${plural(adjusted, "move")}.`
+                      : "Set your own values in a move's details (tap a move on the graph)."));
+}
+
+function feelGridCard(){
+    const names = movePool();
+    const grid = el("div", {className:"feel-grid"});
+    // columns: energy low -> high; rows: smoothness sharp (top) -> smooth
+    grid.append(el("span"), ...FEEL.energy.map(v=>el("span", {className:"fg-col", textContent:`${FEEL_EMOJI.energy[v]} ${v}`})));
+    for(const s of [...FEEL.smoothness].reverse()){
+        grid.append(el("span", {className:"fg-row", textContent:`${FEEL_EMOJI.smoothness[s]} ${s}`}));
+        for(const e of FEEL.energy){
+            const list = names.filter(n=>feelOf(n).energy === e && feelOf(n).smoothness === s);
+            const cellEl = el("div", {className:`fg-cell${list.length ? "" : " empty"}`},
+                ...list.map(n=>{
+                    const b = el("button", {type:"button", className:"fg-move",
+                        textContent:`${FEEL_EMOJI.distance[feelOf(n).distance]} ${n}`, title:`${n}: ${feelOf(n).distance}`});
+                    b.addEventListener("click", ()=>statsToMove(n));
+                    return b;
+                }));
+            grid.append(cellEl);
+        }
+    }
+    const section = card("Moves for the moment", "Energy across, smoothness down; the emoji before each move is its distance",
+        grid,
+        note(bold("Big moments: "), "the high energy column, especially ↔️ far moves. ",
+             bold("Rhythm: "), "the ⚡ sharp row. ", bold("Delicate: "), "the 🌊 smooth row and 🫂 close moves. Tap a move to see it."));
+    section.classList.add("wide");
+    return section;
+}
+
+function comboFeelCard(){
+    const avg = (c, key)=>c.moves.reduce((s, n)=>s + feelScore(n, key), 0) / c.moves.length;
+    const rows = el("div", {className:"cf-table"},
+        el("span", {className:"cf-h"}), ...Object.keys(FEEL).map(k=>el("span", {className:"cf-h", textContent:FEEL_NAMES[k]})));
+    for(const c of COMBINATIONS){
+        const num = el("button", {type:"button", className:"cf-num", textContent:c.id, title:c.moves.join(" → ")});
+        num.addEventListener("click", ()=>{ closeStats(); state.preview = null; selectCombo(c); });
+        rows.append(num, ...Object.keys(FEEL).map(k=>tip(el("span", {className:"cf-emoji",
+            textContent:c.moves.map(n=>FEEL_EMOJI[k][feelOf(n)[k]]).join("")}),
+            c.moves.map(n=>feelOf(n)[k]).join(" → "), `Combination ${c.id}: ${c.moves.join(" → ")}`)));
+    }
+    const best = (key, dir)=>COMBINATIONS.toSorted((a,b)=>dir*(avg(b, key) - avg(a, key)))[0];
+    const energetic = best("energy", 1), calm = best("energy", -1), smooth = best("smoothness", -1), close = best("distance", -1);
+    return card("Feel of the class combinations", "Each move's feel, in order",
+        rows,
+        note(bold(`Combination ${energetic.id}`), " has the most energy, ", bold(`${calm.id}`), " is the calmest, ",
+             bold(`${smooth.id}`), " the smoothest and ", bold(`${close.id}`), " the closest."));
+}
+
+// --- Flashcards & notes ----------------------------------------------
+
+function flashStatsCard(){
+    const names = MOVES.map(m=>m.name);
+    const studied = names.filter(n=>cardOf(n).box);
+    const mastered = names.filter(n=>cardOf(n).box === LAST_BOX);
+    const due = names.filter(n=>cardOf(n).box && isDue(n));
+    const withNotes = names.filter(n=>flash.notes[n]?.trim());
+    const tile = (label, value, detail)=>el("div", {className:"stat-tile"},
+        el("div", {className:"label", textContent:label}), el("div", {className:"value"}, ...value),
+        ...(detail ? [el("div", {className:"detail", textContent:detail})] : []));
+    const inBox = b => names.filter(n=>cardOf(n).box === b).length;
+    const most = Math.max(1, ...[0,1,2,3,4,5].map(inBox));
+    return card("Flashcards & notes", "How well you know the moves",
+        el("div", {className:"stat-tiles"},
+            tile("Studied", [fmt(studied.length), el("small", {textContent:` of ${names.length}`})]),
+            tile("Mastered", [fmt(mastered.length)], `In box ${LAST_BOX}`),
+            tile("Due now", [fmt(due.length)]),
+            tile("Moves with notes", [fmt(withNotes.length)])),
+        el("div", {className:"boxes", role:"img", ariaLabel:[0,1,2,3,4,5].map(b=>`${b ? `Box ${b}` : "New"}: ${inBox(b)}`).join(", ")},
+            ...[0,1,2,3,4,5].map(b=>el("div", {},
+                el("div", {className:"bn", textContent:inBox(b)}),
+                el("div", {className:"bx"}, el("span", {style:`height:${inBox(b)/most*100}%`})),
+                el("div", {textContent:b ? `Box ${b}` : "New"})))));
+}
+
+function statsCards(){
+    return [headlineCard(), calendarCard(),
+        feelOverviewCard(), comboFeelCard(), feelGridCard(),
+        moveUsageCard(),
+        el("div", {className:"stats-stack"}, positionsCard(), possibilitiesCard()),
+        flowCard(), practiceCard(), flashStatsCard()];
+}
+
 function openStats(){
     closeMenu();
     hideToast();
-    dom.statsBody.replaceChildren(headlineCard(), moveUsageCard(),
-        el("div", {className:"stats-stack"}, positionsCard(), possibilitiesCard()),
-        flowCard(), practiceCard());
+    statsMonth = null;
+    dom.statsBody.replaceChildren(...statsCards());
     dom.statsPage.hidden = false;
     dom.statsPage.scrollTop = 0;
     document.body.classList.add("stats-open");
     dom.statsClose.focus();
 }
+
+// Kept up to date: rebuilt when you come back to the app or another tab
+// changes your data (scroll position kept).
+function refreshStatsPage(){
+    if(dom.statsPage.hidden) return;
+    const top = dom.statsPage.scrollTop;
+    dom.statsBody.replaceChildren(...statsCards());
+    dom.statsPage.scrollTop = top;
+}
+window.addEventListener("storage", e=>{
+    if(e.key === LOG_KEY) logEntries = loadJSON(LOG_KEY, []);
+    refreshStatsPage();
+});
+document.addEventListener("visibilitychange", ()=>{ if(document.visibilityState === "visible") refreshStatsPage(); });
 
 function closeStats(){
     if(dom.statsPage.hidden) return;
