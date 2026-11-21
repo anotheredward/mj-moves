@@ -230,18 +230,43 @@ body.menu-open #backdrop{
     pointer-events:auto;
 }
 
-#menu-header{
+/* Foldable menu sections: the heading toggles the content. */
+.menu-section > summary{
     display:flex;
     align-items:center;
-    justify-content:space-between;
+    gap:8px;
+    min-height:44px;
+    padding-right:44px;           /* room for the close button on phones */
+    cursor:pointer;
+    list-style:none;
+    user-select:none;
+    -webkit-tap-highlight-color:transparent;
 }
 
-#menu h2{
+.menu-section > summary::-webkit-details-marker{
+    display:none;
+}
+
+.menu-section > summary::before{
+    content:"▸";
+    color:var(--ink-soft);
+    font-size:14px;
+    transition:transform 0.15s;
+}
+
+.menu-section[open] > summary::before{
+    transform:rotate(90deg);
+}
+
+.menu-section h2{
     margin:0;
     font-size:20px;
 }
 
 #closeBtn{
+    position:absolute;
+    top:calc(15px + env(safe-area-inset-top));
+    right:10px;
     min-width:44px;
     min-height:44px;
     font-size:22px;
@@ -251,7 +276,7 @@ body.menu-open #backdrop{
 }
 
 #comboList{
-    margin-top:10px;
+    margin-top:6px;
 }
 
 .combo{
@@ -359,13 +384,13 @@ body.menu-open #backdrop{
 
 <div id="backdrop"></div>
 
-<nav id="menu" aria-label="Class combinations">
-<div id="menu-header">
-<h2>Class Combinations</h2>
+<nav id="menu" aria-label="Menu">
 <button id="closeBtn" aria-label="Close menu">✕</button>
-</div>
 
+<details id="classSection" class="menu-section" open>
+<summary><h2>Class Combinations</h2></summary>
 <div id="comboList"></div>
+</details>
 
 <p class="hint">Tap on an empty space to clear the combination.</p>
 </nav>
@@ -529,7 +554,7 @@ const fitPadding = () => isCompact() ? 20 : 50;
 // =====================================================================
 
 const dom = Object.fromEntries(
-    ["container","graph","cy","caption","stepHighlight","menu","menuBtn","closeBtn",
+    ["container","graph","cy","caption","stepHighlight","menu","menuBtn","closeBtn","classSection",
      "backdrop","comboList","prevBtn","nextBtn"].map(id=>[id, document.getElementById(id)])
 );
 
@@ -1279,7 +1304,9 @@ function openMenu(){
     document.body.classList.add("menu-open");
     dom.menuBtn.setAttribute("aria-expanded", "true");
     dom.container.inert = true;              // keep focus inside the menu
-    const target = dom.menu.querySelector(".combo.active") || dom.menu.querySelector(".combo");
+    const target = dom.classSection.open
+        ? dom.menu.querySelector(".combo.active") || dom.menu.querySelector(".combo")
+        : dom.classSection.querySelector("summary");
     target?.focus({preventScroll:true});
     target?.scrollIntoView({block:"nearest"});
 }
@@ -1330,6 +1357,14 @@ function buildMenu(){
 // =====================================================================
 
 buildMenu();
+
+// Remember whether each foldable menu section was left open or folded.
+for(const section of dom.menu.querySelectorAll("details.menu-section")){
+    const key = `mj-moves:${section.id}-open`;
+    const saved = localStorage.getItem(key);
+    if(saved !== null) section.open = saved === "true";
+    section.addEventListener("toggle", ()=>localStorage.setItem(key, section.open));
+}
 
 dom.menuBtn.addEventListener("click", openMenu);
 dom.closeBtn.addEventListener("click", closeMenu);
