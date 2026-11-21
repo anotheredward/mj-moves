@@ -577,10 +577,6 @@ body.menu-open #backdrop{
     filter:none;
 }
 
-#shuffleHint{
-    margin:2px 0 0;
-}
-
 .combo-row.super-row{
     margin:10px 0 12px;
 }
@@ -771,7 +767,10 @@ body.menu-open #backdrop{
 <div class="random-controls">
 <button type="button" id="shuffleBtn" class="primary">Shuffle current combination</button>
 <button type="button" id="replaceBtn" class="secondary">Replace a hand change with a move</button>
-<p class="hint" id="shuffleHint"></p>
+<label class="check">
+<input type="checkbox" id="avoidChanges">
+<span>Avoid hand-changes</span>
+</label>
 </div>
 </details>
 
@@ -1009,7 +1008,7 @@ const fitPadding = () => isCompact() ? 20 : 50;
 // =====================================================================
 
 const dom = Object.fromEntries(
-    ["container","graph","cy","caption","stepHighlight","menu","menuBtn","closeBtn","classSection","showIntro","superSlot","toast","randomSection","lengthGroup","loopCombo","generateBtn","favBtn","favList","shuffleBtn","replaceBtn","shuffleHint",
+    ["container","graph","cy","caption","stepHighlight","menu","menuBtn","closeBtn","classSection","showIntro","superSlot","toast","randomSection","lengthGroup","loopCombo","generateBtn","favBtn","favList","shuffleBtn","replaceBtn","avoidChanges",
      "backdrop","comboList","prevBtn","nextBtn"].map(id=>[id, document.getElementById(id)])
 );
 
@@ -1043,6 +1042,7 @@ const NODE_HANDS = {
     bh:["tl","tr","bl","br"]
 };
 
+const NODE_SIZE = 84;            // width/height of a hand-position node
 const CELL = 46, GAP = 4, PAD = 2;
 const ICON_SIZE = 2*CELL + GAP + 2*PAD;
 
@@ -1174,7 +1174,7 @@ const cy = cytoscape({
     style: [
         { selector:"node.state", style:{
             "shape":"round-rectangle",
-            "width":84, "height":84,
+            "width":NODE_SIZE, "height":NODE_SIZE,
             "background-color":"white",
             "border-width":1, "border-color":COLOR.nodeBorder,
             "background-image":"data(icon)",
@@ -1401,7 +1401,10 @@ function connectorShape(s, t, note=""){
     const len = Math.hypot(b.x-a.x, b.y-a.y) || 1;
     const nx = -(b.y-a.y)/len, ny = (b.x-a.x)/len;
     const boxes = labelBoxes();
-    // the connector's own label sits a quarter of the way along
+    // the connector's own label must also stay off the hand-position nodes
+    const nodeBoxes = cy.nodes(".state").filter(n=>n.visible()).map(n=>n.boundingBox({includeLabels:false}));
+    const labelSpots = [...boxes, ...nodeBoxes];
+    // the connector's own label sits about a quarter of the way along
     const size = labelFontSize();
     measureCtx.font = `italic ${size}px ${FONT}`;
     const halfW = measureCtx.measureText(note).width/2 + 6, halfH = size*LINE_HEIGHT/2 + 4;
@@ -1414,13 +1417,13 @@ function connectorShape(s, t, note=""){
             if(boxes.some(r=>x > r.x1 && x < r.x2 && y > r.y1 && y < r.y2)) n++;
         }
         const [lx,ly] = at(labelAt);
-        if(boxes.some(r=>lx+halfW > r.x1 && lx-halfW < r.x2 && ly+halfH > r.y1 && ly-halfH < r.y2)) n += 10;
+        if(labelSpots.some(r=>lx+halfW > r.x1 && lx-halfW < r.x2 && ly+halfH > r.y1 && ly-halfH < r.y2)) n += 10;
         return n + Math.abs(labelAt - 0.25);   // prefer a quarter of the way along
     };
     const free = [0, 90, -90, 180, -180].filter(bw=>taken.every(x=>Math.abs(x-bw) >= 60));
     let best = { bow:free[0] ?? 0, labelAt:0.25 }, bestCost = Infinity;
     for(const bow of free){
-        for(const labelAt of [0.25, 0.15, 0.4, 0.6, 0.75]){
+        for(const labelAt of [0.25, 0.15, 0.35, 0.45, 0.55, 0.65, 0.75, 0.85]){
             const c = cost(bow, labelAt);
             if(c < bestCost){ bestCost = c; best = {bow, labelAt}; }
         }
@@ -1428,19 +1431,23 @@ function connectorShape(s, t, note=""){
     return best;
 }
 
-// A dashed connector for a hand transition (exists only while shown).
+// A dashed connector for a hand transition (exists only while shown). It's
+// numbered between the moves either side: after step 9 it's "9.5".
 function addTransition(from, to, note, index){
     const a = cy.$id(from).position(), b = cy.$id(to).position();
-    const {bow, labelAt} = connectorShape(from, to, note);
+    const label = `${index + 1}.5 ${note}`;
+    const {bow, labelAt} = connectorShape(from, to, label);
     return cy.add({
         group:"edges",
         data:{
             id:`transition-${index}`,
             source:from, target:to,
             moves:[], count:1,
-            edgeLabel:note, fullLabel:note,
+            edgeLabel:label, fullLabel:label,
             bow,
-            labelOffset:Math.hypot(b.x-a.x, b.y-a.y) * labelAt,
+            // Cytoscape measures this from where the line leaves the source
+            // node's edge, not its centre, so take off half a node
+            labelOffset:Math.max(0, Math.hypot(b.x-a.x, b.y-a.y) * labelAt - NODE_SIZE/2),
             loopDirection:0, mx:0, my:0
         },
         classes:"transition highlight"
@@ -2178,10 +2185,25 @@ function* permutations(items){
     }
 }
 
-// A different order of the same moves with the fewest hand changes
-// (picked at random among the best). Exhaustive for short combinations;
+// How much less likely each hand change makes an order: 1 hand change is
+// 1/4 as likely as none, 2 are 1/16, and so on.
+const HAND_CHANGE_WEIGHT = 0.25;
+const orderWeight = cost => HAND_CHANGE_WEIGHT ** cost;
+
+function weightedPick(items, weightOf){
+    const weights = items.map(weightOf);
+    let r = Math.random() * weights.reduce((a,b)=>a+b, 0);
+    for(let i = 0; i < items.length; i++){
+        r -= weights[i];
+        if(r <= 0) return items[i];
+    }
+    return items[items.length-1];
+}
+
+// "Avoid hand-changes": a different order with the fewest hand changes
+// possible (random among the best). Exhaustive for short combinations;
 // for long ones, many randomised "link where you can" attempts.
-function shuffleOrder(moves, loops){
+function shuffleOrderFewest(moves, loops){
     const current = moves.join(">");
     let best = Infinity, choices = [];
     const consider = order=>{
@@ -2208,6 +2230,37 @@ function shuffleOrder(moves, loops){
         }
     }
     return choices.length ? { moves:shuffled(choices)[0], cost:best } : null;
+}
+
+// A different order of the same moves, chosen at random but weighted
+// towards fewer hand changes: any order can come up, but each hand change
+// makes it less likely. Short combinations weigh every possible order;
+// long ones weigh a few hundred candidate orders.
+function shuffleOrder(moves, loops){
+    const current = moves.join(">");
+    if(moves.length <= 7){
+        const orders = [...permutations(moves)].filter(p=>p.join(">") !== current);
+        if(!orders.length) return null;
+        const pick = weightedPick(orders, p=>orderWeight(orderCost(p, loops)));
+        return { moves:pick, cost:orderCost(pick, loops) };
+    }
+    // too many orders to weigh them all: build a few hundred candidates move
+    // by move (favouring moves that link), then weigh those as above
+    const candidates = [];
+    for(let attempt = 0; attempt < 300; attempt++){
+        const left = shuffled(moves);
+        const order = [left.pop()];
+        while(left.length){
+            const last = order[order.length-1];
+            const pick = weightedPick(left, m=>orderWeight(bridgeCost(last, m)));
+            left.splice(left.indexOf(pick), 1);
+            order.push(pick);
+        }
+        if(order.join(">") !== current) candidates.push(order);
+    }
+    if(!candidates.length) return null;
+    const pick = weightedPick(candidates, p=>orderWeight(orderCost(p, loops)));
+    return { moves:pick, cost:orderCost(pick, loops) };
 }
 
 const shownMoves = () => MOVES
@@ -2239,15 +2292,14 @@ function updateShuffleControls(){
     const combo = state.selection?.kind === "combo" ? state.selection.combo : null;
     dom.shuffleBtn.disabled = !combo || combo.moves.length < 2;
     dom.replaceBtn.disabled = !combo || !replaceHandChange(combo);
-    dom.shuffleHint.textContent = !combo ? "Pick a combination first."
-        : combo.moves.length < 2 ? "Needs at least 2 moves to shuffle."
-        : `Current: ${handChanges(combo) ? plural(handChanges(combo), "hand change") : "no hand changes"}.`;
 }
 
 dom.shuffleBtn.addEventListener("click", ()=>{
     const combo = state.selection?.combo;
     if(!combo) return;
-    const result = shuffleOrder(combo.moves, combo.loops);
+    const result = dom.avoidChanges.checked
+        ? shuffleOrderFewest(combo.moves, combo.loops)
+        : shuffleOrder(combo.moves, combo.loops);
     if(!result){ showToast("There's no other order for these moves"); return; }
     state.preview = null;
     const shuffledCombo = { id:null, caption:"Shuffled", moves:result.moves, loops:combo.loops };
@@ -2256,6 +2308,12 @@ dom.shuffleBtn.addEventListener("click", ()=>{
     showToast(n ? `Shuffled: ${plural(n, "hand change")} needed` : "Shuffled: no hand changes needed");
     closeMenu();
 });
+
+{
+    const key = "mj-moves:avoid-hand-changes";
+    dom.avoidChanges.checked = localStorage.getItem(key) === "true";     // off by default
+    dom.avoidChanges.addEventListener("change", ()=>localStorage.setItem(key, dom.avoidChanges.checked));
+}
 
 dom.replaceBtn.addEventListener("click", ()=>{
     const combo = state.selection?.combo;
