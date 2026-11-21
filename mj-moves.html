@@ -103,6 +103,62 @@ html, body {
     display:none;
 }
 
+/* The combination's name on its own, used by the two-row bar on narrow
+   phones (below); hidden otherwise. */
+#comboTitle{
+    display:none;
+}
+
+/* Narrow phones (portrait): buttons and the combination's name on the
+   first row, the moves across the full width on a second row. */
+@media (max-width:600px) and (min-height:501px){
+    #topbar{
+        flex-wrap:wrap;
+        column-gap:5px;
+        row-gap:6px;
+        padding-left:8px;
+        padding-right:8px;
+    }
+
+    #topbar button{
+        min-width:40px;
+    }
+
+    #comboTitle{
+        display:block;
+        flex:1;
+        min-width:0;
+        order:0;
+        overflow:hidden;
+        text-overflow:ellipsis;
+        white-space:nowrap;
+        text-align:center;
+        font-size:14px;
+        font-weight:600;
+        color:var(--ink);
+    }
+
+    #comboTitle.placeholder{
+        font-weight:normal;
+        color:#777;
+    }
+
+    #caption{
+        order:1;
+        flex:1 0 100%;
+        min-height:24px;
+    }
+
+    /* no combination: the title row already says to choose one */
+    #caption:has(> .placeholder){
+        display:none;
+    }
+
+    #caption .combo-id{
+        display:none;
+    }
+}
+
 #caption .combo-id{
     color:var(--ink-soft);
     margin-right:4px;
@@ -1218,6 +1274,7 @@ body.menu-open #backdrop{
 <div id="topbar">
 <button id="menuBtn" aria-label="Show combinations" aria-controls="menu" aria-expanded="false">☰</button>
 <button id="prevBtn" aria-label="Previous combination">‹</button>
+<div id="comboTitle"></div>
 <div id="caption"></div>
 <button id="favBtn" class="star" aria-pressed="false" hidden>☆</button>
 <button id="shareBtn" aria-label="Share a link to this combination" title="Share link" hidden>
@@ -1524,7 +1581,7 @@ const fitPadding = () => isCompact() ? 20 : 50;
 // =====================================================================
 
 const dom = Object.fromEntries(
-    ["container","graph","cy","caption","stepHighlight","menu","menuBtn","closeBtn","classSection","showIntro","superSlot","toast","randomSection","lengthGroup","loopCombo","generateBtn","favBtn","shareBtn","favList","shuffleBtn","replaceBtn","avoidChanges",
+    ["container","graph","cy","caption","comboTitle","stepHighlight","menu","menuBtn","closeBtn","classSection","showIntro","superSlot","toast","randomSection","lengthGroup","loopCombo","generateBtn","favBtn","shareBtn","favList","shuffleBtn","replaceBtn","avoidChanges",
      "backdrop","comboList","statsBtn","statsPage","statsBody","statsClose","statsTip","prevBtn","nextBtn"].map(id=>[id, document.getElementById(id)])
 );
 
@@ -2255,13 +2312,18 @@ function renderCaption(){
     const sel = state.preview || state.selection;
     dom.caption.replaceChildren();
     dom.caption.scrollLeft = 0;
+    dom.comboTitle.classList.toggle("placeholder", sel?.kind !== "combo");
     if(sel?.kind === "combo"){
-        const label = stats[comboKey(sel.combo)]?.name ?? sel.combo.id ?? sel.combo.caption;
+        const c = sel.combo, name = stats[comboKey(c)]?.name;
+        const label = name ?? c.id ?? c.caption;
         if(label) dom.caption.append(el("span", {className:"combo-id", textContent:`${label}`}));
-        dom.caption.append(...sequenceNodes(sel.combo));
+        dom.caption.append(...sequenceNodes(c));
+        // narrow phones: the name on the button row, the moves below
+        dom.comboTitle.textContent = name ?? (c.id ? `Combo ${c.id}` : c.caption ?? "Custom");
     }else{
         const where = SIDEBAR.matches ? "on the left" : "from ☰";
         dom.caption.append(el("span", {className:"placeholder", textContent:`Choose a combination ${where}`}));
+        dom.comboTitle.textContent = "Choose from ☰";
     }
 }
 
