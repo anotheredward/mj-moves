@@ -2669,9 +2669,7 @@ function headlineCard(){
              missing.length ? `Not in any yet: ${listText(missing)}` : "Every one of them",
              el("div", {className:"meter", role:"img", ariaLabel:`${taught.length} of ${beginner.length}`},
                  el("span", {style:`flex:${taught.length}`}),
-                 ...(missing.length ? [el("span", {className:"rest", style:`flex:${missing.length}`})] : []))),
-        tile("Known hand changes", [fmt(HAND_SWAPS.length + MOVE_VARIATIONS.length)],
-             `${HAND_SWAPS.length} general, ${MOVE_VARIATIONS.length} for particular moves`)));
+                 ...(missing.length ? [el("span", {className:"rest", style:`flex:${missing.length}`})] : [])))));
     section.classList.add("wide");
     return section;
 }
