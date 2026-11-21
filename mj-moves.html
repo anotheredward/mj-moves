@@ -990,6 +990,176 @@ body.menu-open #backdrop{
     font-size:15px;
 }
 
+/* ---------- Move details: a panel over the graph ---------- */
+#movePanel{
+    position:absolute;
+    z-index:5;
+    top:12px;
+    right:12px;
+    bottom:12px;
+    width:min(380px, calc(100% - 24px));
+    overflow-y:auto;
+    overscroll-behavior:contain;
+    padding:16px 18px 20px;
+    box-sizing:border-box;
+    border:1px solid var(--rule);
+    border-radius:14px;
+    background:white;
+    box-shadow:0 8px 30px rgba(0,0,0,0.15);
+}
+
+#movePanel[hidden]{
+    display:none;
+}
+
+/* portrait phones: a sheet up from the bottom */
+@media (max-width:700px) and (min-height:501px){
+    #movePanel{
+        top:auto;
+        left:0;
+        right:0;
+        bottom:0;
+        width:auto;
+        max-height:72%;
+        border-radius:16px 16px 0 0;
+        padding-bottom:calc(20px + env(safe-area-inset-bottom));
+    }
+}
+
+.mp-head{
+    display:flex;
+    align-items:flex-start;
+    gap:8px;
+}
+
+.mp-head h2{
+    margin:4px 0 0;
+    font-size:24px;
+}
+
+.mp-head button{
+    min-width:44px;
+    min-height:44px;
+    margin:-6px -8px 0 0;
+    border:none;
+    border-radius:8px;
+    background:none;
+    color:var(--ink);
+    font-size:22px;
+    cursor:pointer;
+}
+
+.mp-head button:hover{
+    background:#f0f0f0;
+}
+
+.mp-level{
+    display:inline-block;
+    margin-top:4px;
+    padding:1px 9px;
+    border-radius:999px;
+    font-size:12px;
+    font-weight:600;
+    letter-spacing:0.04em;
+    text-transform:uppercase;
+    background:#e8f0fc;
+    color:#1c5cab;
+}
+
+.mp-level.intromediate{
+    background:#fdebe3;
+    color:#a3401a;
+}
+
+.mp-holds{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:16px;
+    margin:16px 0 4px;
+    font-size:13px;
+    color:var(--ink-soft);
+    text-align:center;
+}
+
+.mp-holds img{
+    display:block;
+    width:60px;
+    height:60px;
+    margin:0 auto 4px;
+}
+
+.mp-holds b{
+    color:var(--ink);
+}
+
+.mp-holds .arrow{
+    font-size:20px;
+}
+
+#movePanel h3{
+    margin:18px 0 6px;
+    font-size:14px;
+    color:var(--ink-soft);
+}
+
+.mp-chips{
+    display:flex;
+    flex-wrap:wrap;
+    gap:6px;
+}
+
+.mp-chips button{
+    min-height:32px;
+    padding:2px 10px;
+    border:1px solid #ccc;
+    border-radius:16px;
+    background:white;
+    color:var(--ink);
+    font:inherit;
+    font-size:14px;
+    cursor:pointer;
+}
+
+.mp-chips button:hover{
+    background:#f5f5f5;
+}
+
+.mp-chips button.combo-chip{
+    min-width:36px;
+    border-color:var(--accent);
+    background:var(--accent-soft);
+    font-weight:600;
+}
+
+.mp-text{
+    margin:0;
+    font-size:14px;
+    line-height:1.5;
+}
+
+.mp-videos{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:8px;
+    margin-top:18px;
+    min-height:44px;
+    border-radius:10px;
+    background:var(--ink);
+    color:white;
+    font-weight:600;
+    text-decoration:none;
+}
+
+.mp-videos:hover{
+    filter:brightness(1.3);
+}
+
+#caption .step[data-move]{
+    cursor:pointer;
+}
+
 /* ---------- Practice: menu buttons ---------- */
 .practice-area{
     margin-top:14px;
@@ -1900,6 +2070,7 @@ body.menu-open #backdrop{
 <div id="graph">
 <div id="cy"></div>
 <div id="stepHighlight" aria-hidden="true"></div>
+<aside id="movePanel" aria-labelledby="moveTitle" hidden></aside>
 </div>
 
 </div>
@@ -2238,7 +2409,7 @@ const fitPadding = () => isCompact() ? 20 : 50;
 // =====================================================================
 
 const dom = Object.fromEntries(
-    ["container","graph","cy","caption","comboTitle","stepHighlight","menu","menuBtn","closeBtn","classSection","showIntro","superSlot","toast","randomSection","lengthGroup","loopCombo","generateBtn","favBtn","shareBtn","favList","favCount","shuffleBtn","replaceBtn","avoidChanges",
+    ["container","graph","cy","caption","comboTitle","stepHighlight","menu","menuBtn","closeBtn","classSection","showIntro","superSlot","toast","randomSection","lengthGroup","loopCombo","generateBtn","favBtn","shareBtn","favList","favCount","movePanel","shuffleBtn","replaceBtn","avoidChanges",
      "backdrop","comboList","buildSection","buildSeq","buildUndo","buildClear","buildFromCurrent","buildMoves",
      "callerBtn","callerPage","callerBody","callerClose","flashBtn","flashPage","flashBody","flashClose","statsFx","statsBtn","statsPage","statsBody","statsClose","statsTip","prevBtn","nextBtn"].map(id=>[id, document.getElementById(id)])
 );
@@ -2950,6 +3121,7 @@ function sequenceNodes(combo){
         if(parts.length) parts.push(arrow());
         if(item.kind === "move"){
             const chip = el("span", {className:"step", textContent:item.name});
+            chip.dataset.move = item.name;
             // an alternative ending is a small tag on the move itself
             if(item.variant) chip.append(el("span", {className:"variant", textContent:item.variant}));
             chip.dataset.step = `move-${item.index}`;
@@ -3958,7 +4130,16 @@ dom.prevBtn.addEventListener("click", ()=>stepCombo(-1));
 dom.nextBtn.addEventListener("click", ()=>stepCombo(+1));
 
 // tap empty space to clear the combination
-cy.on("tap", e=>{ if(e.target === cy) selectCombo(null); });
+cy.on("tap", e=>{
+    const move = moveAt(e.position, e.target);
+    if(move){ showMoveDetails(move); return; }
+    if(e.target === cy) selectCombo(null);
+});
+cy.on("mousemove", e=>{ dom.cy.style.cursor = moveAt(e.position, e.target) ? "pointer" : ""; });
+dom.caption.addEventListener("click", e=>{
+    const chip = e.target.closest("[data-move]");
+    if(chip) showMoveDetails(chip.dataset.move);
+});
 
 // Re-lay out whenever the graph area changes size (window resize,
 // rotation, caption height) or the phone/desktop breakpoint flips.
@@ -4516,22 +4697,7 @@ function flashCardView(){
     facts.push(`Flows on into ${plural(followers.length, "move")} without a hand change`);
     card.append(el("ul", {className:"flash-facts"}, ...facts.map(f=>el("li", {textContent:f}))));
 
-    // your own notes: the details the app doesn't know
-    const area = el("textarea", {id:"flashNotes", value:flash.notes[name] ?? "", placeholder:NOTES_TEMPLATE});
-    area.addEventListener("input", ()=>{
-        if(area.value.trim()) flash.notes[name] = area.value;
-        else delete flash.notes[name];
-        saveJSON(NOTES_KEY, flash.notes);
-    });
-    const notes = el("div", {className:"flash-notes"},
-        el("label", {htmlFor:"flashNotes", textContent:"Your notes"}), area);
-    if(!area.value){
-        const tmpl = el("button", {type:"button", className:"secondary", textContent:"Add headings",
-            style:"margin-top:6px;min-height:36px;font-size:14px;padding:0 12px"});
-        tmpl.addEventListener("click", ()=>{ area.value = NOTES_TEMPLATE; area.dispatchEvent(new Event("input")); area.focus(); tmpl.remove(); });
-        notes.append(tmpl);
-    }
-    card.append(notes);
+    card.append(notesEditor(name));     // your own notes: the details the app doesn't know
 
     const grade = (g, label, cls)=>{
         const [, days] = graded(name, g);
@@ -4628,6 +4794,133 @@ document.addEventListener("keydown", e=>{
     }, 2500 + Math.random()*3500);
     scheduleFirework();
 }
+
+// =====================================================================
+// Move details: tap a move's name on the graph (or in the caption) to
+// see everything known about it, keep your own notes (shared with the
+// flashcards), and find videos.
+// =====================================================================
+
+const VIDEOS_URL = "https://fevah.dance/classes/videos/";
+
+// The move whose name is under a graph position: each line of a label is
+// one move ("3. Back Pass", "Basket · keep both"). A tap on a line that
+// carries a single move counts too.
+function moveAt(pos, target){
+    for(const edge of cy.edges().not(".transition, .filtered")){
+        // (a tapped line is restyled as active, which clears its label box
+        // until the next draw: measure it again)
+        let box = labelBox(edge, "main");
+        if(!box && edge.visible()){ edge.boundingBox(); box = labelBox(edge, "main"); }
+        if(!box || pos.x < box.x1 || pos.x > box.x2 || pos.y < box.y1 || pos.y > box.y2) continue;
+        const lines = edge.data("edgeLabel").split("\n");
+        const fs = parseFloat(edge.style("font-size")) || labelFontSize();
+        const lh = fs * LINE_HEIGHT;
+        const top = box.y1 + (box.h - lines.length*lh) / 2;
+        const k = Math.min(lines.length-1, Math.max(0, Math.floor((pos.y - top) / lh)));
+        const name = lines[k].replace(/^\d+\.\s+/, "").replace(/ · .*$/, "").trim();
+        if(MOVE_STATES.has(name)) return name;
+    }
+    if(target?.isEdge?.() && !target.hasClass("transition")){
+        const moves = target.data("moves");
+        if(moves?.length === 1) return moves[0];
+    }
+    return null;
+}
+
+// Your notes for a move, saved as you type (the flashcards use them too).
+function notesEditor(name){
+    const id = `notes-${slug(name)}`;
+    const area = el("textarea", {id, value:flash.notes[name] ?? "", placeholder:NOTES_TEMPLATE});
+    area.addEventListener("input", ()=>{
+        if(area.value.trim()) flash.notes[name] = area.value;
+        else delete flash.notes[name];
+        saveJSON(NOTES_KEY, flash.notes);
+    });
+    const box = el("div", {className:"flash-notes"}, el("label", {htmlFor:id, textContent:"Your notes"}), area);
+    if(!area.value){
+        const tmpl = el("button", {type:"button", className:"secondary", textContent:"Add headings",
+            style:"margin-top:6px;min-height:36px;font-size:14px;padding:0 12px"});
+        tmpl.addEventListener("click", ()=>{ area.value = NOTES_TEMPLATE; area.dispatchEvent(new Event("input")); area.focus(); tmpl.remove(); });
+        box.append(tmpl);
+    }
+    return box;
+}
+
+function showMoveDetails(name){
+    const move = MOVE_STATES.get(name);
+    if(!move) return;
+    const pool = movePool();
+    const chipList = names=>names.length
+        ? el("div", {className:"mp-chips"}, ...names.map(n=>{
+            const b = el("button", {type:"button", textContent:n});
+            b.addEventListener("click", ()=>showMoveDetails(n));
+            return b;
+          }))
+        : el("p", {className:"mp-text", textContent:"None"});
+    const close = el("button", {type:"button", textContent:"✕", ariaLabel:"Close move details"});
+    close.addEventListener("click", closeMoveDetails);
+    const hold = (id, text)=>el("div", {}, el("img", {src:nodeIcon(id), alt:""}), text, el("br"), el("b", {textContent:POSITION_NAMES[id]}));
+
+    const parts = [
+        el("div", {className:"mp-head"},
+            el("div", {style:"flex:1"},
+                el("h2", {id:"moveTitle", textContent:name}),
+                el("span", {className:`mp-level ${move.level}`, textContent:move.level})),
+            close),
+        el("div", {className:"mp-holds"}, hold(move.from, "Starts in"), el("span", {className:"arrow", textContent:"→"}), hold(move.to, "Finishes in"))
+    ];
+
+    const variations = MOVE_VARIATIONS.filter(v=>v.move === name).map(v=>v.end
+        ? `Can finish in ${POSITION_NAMES[v.end]} (${v.note}), so the next move can start there`
+        : `Can start from ${POSITION_NAMES[v.start]} (${v.note})`);
+    if(variations.length){
+        parts.push(el("h3", {textContent:"Variations"}),
+            ...variations.map(t=>el("p", {className:"mp-text", textContent:t})));
+    }
+
+    parts.push(el("h3", {textContent:"Flows on into (no hand change)"}), chipList(pool.filter(m=>m !== name && canFollow(name, m))));
+    parts.push(el("h3", {textContent:"Can come after (no hand change)"}), chipList(pool.filter(m=>m !== name && canFollow(m, name))));
+
+    const inClass = COMBINATIONS.filter(c=>c.moves.includes(name));
+    parts.push(el("h3", {textContent:"In class combinations"}));
+    if(inClass.length){
+        parts.push(el("div", {className:"mp-chips"}, ...inClass.map(c=>{
+            const b = el("button", {type:"button", className:"combo-chip", textContent:`${c.id}`, title:c.moves.join(" → ")});
+            b.setAttribute("aria-label", `Combination ${c.id}: ${c.moves.join(", ")}`);
+            b.addEventListener("click", ()=>{ state.preview = null; selectCombo(c); });
+            return b;
+        })));
+    }else{
+        parts.push(el("p", {className:"mp-text", textContent:"Not in a class combination yet"}));
+    }
+    const superAt = SUPER_COMBO.moves.indexOf(name);
+    if(superAt >= 0){
+        parts.push(el("p", {className:"mp-text", style:"margin-top:6px",
+            textContent:`Move ${superAt + 1} of ${SUPER_COMBO.moves.length} in the Beginner's Super Combo`}));
+    }
+
+    const card = cardOf(name);
+    parts.push(el("h3", {textContent:"Flashcards"}), el("p", {className:"mp-text", textContent: card.box
+        ? `Box ${card.box} of ${LAST_BOX}; ${card.due <= today() ? "due now" : `next due ${card.due === inDays(1) ? "tomorrow" : card.due}`}`
+        : "Not studied yet"}));
+
+    parts.push(notesEditor(name),
+        el("a", {className:"mp-videos", href:VIDEOS_URL, target:"_blank", rel:"noopener"},
+            "Videos", el("span", {ariaHidden:"true", textContent:"↗"})));
+
+    dom.movePanel.replaceChildren(...parts);
+    dom.movePanel.hidden = false;
+    dom.movePanel.scrollTop = 0;
+}
+
+function closeMoveDetails(){
+    dom.movePanel.hidden = true;
+}
+
+document.addEventListener("keydown", e=>{
+    if(e.key === "Escape" && dom.callerPage.hidden && dom.flashPage.hidden && dom.statsPage.hidden) closeMoveDetails();
+});
 
 renderBuilder();
 
