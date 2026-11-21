@@ -5,8 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Dance State Transition Graph</title>
 
-<!-- Pinned: the pulse animation reads Cytoscape's internal edge geometry and label bounds. -->
-<script src="https://unpkg.com/cytoscape@3.35.0/dist/cytoscape.min.js"></script>
+<!-- Bundled & pinned: the comet and step highlight read Cytoscape internals
+     (see edgeCurves / labelBox in the script). -->
+<script src="vendor/cytoscape-3.35.0.min.js"></script>
 
 <style>
 /* Design tokens, shared with the graph styles in the script */
@@ -231,6 +232,12 @@ body.menu-open #backdrop{
 }
 
 .combo{
+    display:block;
+    width:100%;
+    text-align:left;
+    font:inherit;
+    color:inherit;
+    background:none;
     padding:10px 8px;
     margin-bottom:6px;
     border-radius:6px;
@@ -238,6 +245,11 @@ body.menu-open #backdrop{
     border:2px solid transparent;
     -webkit-tap-highlight-color:transparent;
     user-select:none;
+}
+
+.combo-title,
+.combo-moves{
+    display:block;
 }
 
 .combo:hover{
@@ -326,8 +338,14 @@ its moves, or tap empty space to clear.
 </nav>
 
 <script>
+"use strict";
 
-const moves = [
+// =====================================================================
+// Data
+// =====================================================================
+
+// [move, start position, end position]
+const MOVES = [
 ["Accordion","rr","rr"],
 ["Loop Throughs","bh","bh"],
 ["Back Pass","rr","lr"],
@@ -357,38 +375,83 @@ const moves = [
 ["Wrap & Throw","rl","lr"],
 ["Short Manhattan","lr","lr"]
 ];
-// [id, moves, hand transitions]. A hand transition bridges a move that ends
-// in one hand position and a next move that starts in another; it's keyed
-// by the move it follows.
-const combinations = [
-[1,["Basket","Manhattan","Step Across"]],
-[2,["Short First Move","Break Through","Hook Turn"]],
-[3,["Yoyo","Back Pass","Figure Of 8"]],
-[4,["Accordion","Shoulder Block","Block & Turn"], {"Shoulder Block":"swap to R"}],
-[5,["Manhattan","Left Side Change","Key Turn"]],
-[6,["Step Across","Wurlitzer","Short First Move"]],
-[7,["Basket","Loop Throughs","Hatchback"], {"Basket":"keep both", "Loop Throughs":"drop R"}],
-[8,["Squeezebox","Figure Of 8","Catapult"]],
-[10,["Shoulder Block","Accordion","Yoyo"], {"Shoulder Block":"offer L"}],
-[11,["Short First Move","Loop Throughs","New Yorker"], {"Short First Move":"trace R", "Loop Throughs":"drop R"}],
-[12,["Catapult","Break Through","Block & Turn"]],
-[13,["Squeezebox","Left Side Change","Back Pass"]]
+
+// transitions: hand changes between moves, keyed by the move they follow.
+const COMBINATIONS = [
+{ id:1,  moves:["Basket","Manhattan","Step Across"] },
+{ id:2,  moves:["Short First Move","Break Through","Hook Turn"] },
+{ id:3,  moves:["Yoyo","Back Pass","Figure Of 8"] },
+{ id:4,  moves:["Accordion","Shoulder Block","Block & Turn"], transitions:{"Shoulder Block":"swap to R"} },
+{ id:5,  moves:["Manhattan","Left Side Change","Key Turn"] },
+{ id:6,  moves:["Step Across","Wurlitzer","Short First Move"] },
+{ id:7,  moves:["Basket","Loop Throughs","Hatchback"], transitions:{"Basket":"keep both", "Loop Throughs":"drop R"} },
+{ id:8,  moves:["Squeezebox","Figure Of 8","Catapult"] },
+{ id:10, moves:["Shoulder Block","Accordion","Yoyo"], transitions:{"Shoulder Block":"offer L"} },
+{ id:11, moves:["Short First Move","Loop Throughs","New Yorker"], transitions:{"Short First Move":"trace R", "Loop Throughs":"drop R"} },
+{ id:12, moves:["Catapult","Break Through","Block & Turn"] },
+{ id:13, moves:["Squeezebox","Left Side Change","Back Pass"] }
 ];
 
-const moveStates = Object.fromEntries(moves.map(([m,from,to])=>[m,[from,to]]));
+const STATES = ["rr","lr","rl","bh"];
+const MOVE_STATES = new Map(MOVES.map(([name,from,to])=>[name, {from, to}]));
 
-// ---------- Group moves into one edge per (from, to) pair ----------
+// Catch typos early: a misspelt move would otherwise be skipped silently.
+(function validateData(){
+    for(const combo of COMBINATIONS){
+        combo.moves.forEach((name,i)=>{
+            if(!MOVE_STATES.has(name)){
+                console.warn(`Combination ${combo.id}: unknown move "${name}"`);
+                return;
+            }
+            const next = combo.moves[i+1];
+            if(next && MOVE_STATES.has(next) &&
+               MOVE_STATES.get(name).to !== MOVE_STATES.get(next).from &&
+               !combo.transitions?.[name]){
+                console.warn(`Combination ${combo.id}: ${name} → ${next} needs a hand transition note`);
+            }
+        });
+        for(const after of Object.keys(combo.transitions || {})){
+            if(!combo.moves.includes(after)){
+                console.warn(`Combination ${combo.id}: transition after unknown move "${after}"`);
+            }
+        }
+    }
+})();
 
-const groups = new Map();   // "from|to" -> {from, to, moves:[]}
-moves.forEach(([move,from,to])=>{
-    const key = `${from}|${to}`;
-    if(!groups.has(key)) groups.set(key, {from, to, moves:[]});
-    groups.get(key).moves.push(move);
-});
+// =====================================================================
+// Look & layout constants (colours/fonts match the CSS tokens)
+// =====================================================================
 
-const elements=[];
+const ROOT_STYLE = getComputedStyle(document.documentElement);
+const FONT = ROOT_STYLE.getPropertyValue("--font").trim();
+const ACCENT = ROOT_STYLE.getPropertyValue("--accent").trim();
+const LEAD_COLOR = "#2d7ff9";      // lead's hands
+const FOLLOW_COLOR = "#7d8894";    // follow's hands (silver, still 3.6:1 with white)
+const LINE_HEIGHT = 1.3;           // label line height, as a multiple of font size
+const LABEL_SIZE = { normal:15, compact:19 };
 
-// ---------- Node icons: hand positions seen from above ----------
+const COMPACT = window.matchMedia("(max-width:700px), (max-height:500px)");
+const REDUCED_MOTION = window.matchMedia("(prefers-reduced-motion: reduce)");
+const isCompact = () => COMPACT.matches;
+const labelFontSize = () => isCompact() ? LABEL_SIZE.compact : LABEL_SIZE.normal;
+const fitPadding = () => isCompact() ? 20 : 50;
+
+// =====================================================================
+// DOM & app state
+// =====================================================================
+
+const dom = Object.fromEntries(
+    ["container","graph","cy","caption","stepHighlight","menu","menuBtn","closeBtn",
+     "backdrop","comboList","prevBtn","nextBtn"].map(id=>[id, document.getElementById(id)])
+);
+
+// selection: what the user picked ({kind:"combo", combo} | {kind:"edge", edge} | null)
+// preview:   a combination hovered in the menu, shown on the graph only
+const state = { selection:null, preview:null };
+
+// =====================================================================
+// Node icons: hand positions seen from above
+// =====================================================================
 // Each node is a 2x2 grid. Top row = follow (fingers pointing down),
 // bottom row = lead (fingers pointing up). Viewed from above with the
 // couple facing each other, the squares are always:
@@ -412,19 +475,10 @@ const NODE_HANDS = {
     bh:["tl","tr","bl","br"]
 };
 
-// Graph colours/fonts, matching the CSS tokens at the top of the page.
-const ACCENT = "#b35300";              // highlighted path (5:1 against white text)
-const FONT = getComputedStyle(document.documentElement).getPropertyValue("--font").trim();
-
-// Lead's hands are blue; follow's hands are silver (dark enough that the
-// white letter stays readable on a white node).
-const LEAD_COLOR = "#2d7ff9";
-const FOLLOW_COLOR = "#7d8894";
-const CELL = 46, GAP = 4, PAD = 2;          // icon is 2*CELL + GAP + 2*PAD square
+const CELL = 46, GAP = 4, PAD = 2;
 const ICON_SIZE = 2*CELL + GAP + 2*PAD;
 
 // A hand with fingers pointing up, drawn in a CELL x CELL box.
-// thumbRight: thumb on the right-hand side of the palm.
 function handShape(thumbRight, color){
     const fingers = [
         {x:10.0, top:8},
@@ -445,56 +499,63 @@ function slotSvg(slot, filled){
         return `<rect x="${x+3}" y="${y+3}" width="${CELL-6}" height="${CELL-6}" rx="6"
             fill="none" stroke="#dcdcdc" stroke-width="1.2" stroke-dasharray="1.5 3" stroke-linecap="round"/>`;
     }
-    // Thumbs point toward the centre line: left column -> right, right column -> left.
-    const thumbRight = slot.col===0;
-    const fingersDown = slot.row===0;
-    // Fingers-down hands are the fingers-up shape flipped vertically.
+    const thumbRight = slot.col === 0;      // thumbs point toward the centre line
+    const fingersDown = slot.row === 0;     // follow's hands: the up-shape flipped
     const color = fingersDown ? FOLLOW_COLOR : LEAD_COLOR;
     const shape = fingersDown
         ? `<g transform="translate(0 ${CELL}) scale(1 -1)">${handShape(thumbRight, color)}</g>`
         : handShape(thumbRight, color);
-    const textY = fingersDown ? 18 : 38;     // centre of the palm
+    const textY = fingersDown ? 18 : 38;    // centre of the palm
     return `<g transform="translate(${x} ${y})">${shape}
         <text x="23" y="${textY}" text-anchor="middle" font-family="${FONT.replace(/"/g,"'")}"
             font-size="15" font-weight="bold" fill="white">${slot.letter}</text></g>`;
 }
 
-function nodeIcon(id){
-    const filled = new Set(NODE_HANDS[id]);
-    const body = Object.entries(HAND_SLOTS)
-        .map(([key,slot])=>slotSvg(slot, filled.has(key))).join("");
-    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${ICON_SIZE}" height="${ICON_SIZE}"
-        viewBox="0 0 ${ICON_SIZE} ${ICON_SIZE}">${body}</svg>`;
-    return "data:image/svg+xml;utf8," + encodeURIComponent(svg);
+const nodeIcon = (()=>{
+    const cache = new Map();
+    return id=>{
+        if(!cache.has(id)){
+            const filled = new Set(NODE_HANDS[id]);
+            const body = Object.entries(HAND_SLOTS)
+                .map(([key,slot])=>slotSvg(slot, filled.has(key))).join("");
+            const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${ICON_SIZE}" height="${ICON_SIZE}"
+                viewBox="0 0 ${ICON_SIZE} ${ICON_SIZE}">${body}</svg>`;
+            cache.set(id, "data:image/svg+xml;utf8," + encodeURIComponent(svg));
+        }
+        return cache.get(id);
+    };
+})();
+
+// =====================================================================
+// Graph elements: one node per hand position, one edge per (from, to)
+// pair carrying the list of moves between them
+// =====================================================================
+
+function buildElements(){
+    const groups = new Map();   // "from|to" -> {from, to, moves:[]}
+    for(const [name,from,to] of MOVES){
+        const key = `${from}|${to}`;
+        if(!groups.has(key)) groups.set(key, {from, to, moves:[]});
+        groups.get(key).moves.push(name);
+    }
+    const nodes = STATES.map(id=>({ data:{ id, icon:nodeIcon(id) }, classes:"state" }));
+    const edges = [...groups].map(([key,{from,to,moves}])=>{
+        const label = moves.join("\n");
+        return { data:{
+            id:`e:${key}`, source:from, target:to,
+            moves, count:moves.length,
+            fullLabel:label, edgeLabel:label,
+            // a reverse edge exists: bow the pair apart (amount set per layout)
+            hasReverse: from !== to && groups.has(`${to}|${from}`),
+            bow:0, loopDirection:0, mx:0, my:0
+        }};
+    });
+    return [...nodes, ...edges];
 }
 
-["rr","lr","rl","bh"].forEach(id=>{
-    elements.push({ data:{ id, label:id, icon:nodeIcon(id) }, classes:"state" });
-});
-
-groups.forEach(({from,to,moves:names},key)=>{
-    // If there's also an edge going the other way, bow this one out so the
-    // two lines (and their lists) sit on opposite sides instead of overlapping.
-    const hasReverse = from!==to && groups.has(`${to}|${from}`);
-    elements.push({
-        data:{
-            id:"e:"+key,
-            source:from,
-            target:to,
-            moves:names,
-            count:names.length,
-            fullLabel:names.join("\n"),
-            edgeLabel:names.join("\n"),
-            bow: hasReverse ? 140 : 0,      // set per layout in applyLayout()
-            hasReverse,
-            loopDirection: 0,
-            mx: 0,
-            my: 0
-        }
-    });
-});
-
-// ---------- Node placement ----------
+// =====================================================================
+// Node placement
+// =====================================================================
 // A 2x2 grid with lr (the busiest state) in the top-left corner:
 //
 //    lr ---- rr      rr<->lr bow apart along the top edge
@@ -502,19 +563,16 @@ groups.forEach(({from,to,moves:names},key)=>{
 //    |    \  |       bh->rr runs down the right side
 //    rl     bh       bh->lr is the only diagonal, so no lines cross
 //
-// Each self-loop (and its list) points diagonally out of its corner.
-// Grid width/height adapt to the screen shape; on phones (compact) the
-// nodes sit closer together so the graph is drawn as big as possible.
+// Each self-loop (and its list) points out of its corner. Grid size
+// adapts to the screen shape; on phones the nodes sit closer together.
 
-const LOOPS = { lr:-45, rr:45, bh:135, rl:-135 };
-// Portrait phones are short on width, so loops point straight up/down;
-// landscape phones are short on height, so loops point sideways.
-const LOOPS_VERTICAL   = { lr:0, rr:0, bh:180, rl:180 };
-const LOOPS_HORIZONTAL = { lr:-90, rr:90, bh:90, rl:-90 };
+const LOOPS            = { lr:-45, rr:45, bh:135, rl:-135 };
+const LOOPS_VERTICAL   = { lr:0, rr:0, bh:180, rl:180 };     // portrait: short on width
+const LOOPS_HORIZONTAL = { lr:-90, rr:90, bh:90, rl:-90 };   // landscape: short on height
 
-// bow: how far the rr<->lr pair curve apart.
-// shift: move a line's label along its line (fraction of its length;
-// + towards the target), to keep labels from colliding with each other.
+// bow:   how far the rr<->lr pair curve apart
+// shift: move a line's label along its line (fraction of its length,
+//        + towards the target) so labels don't collide
 function grid(w, h, loop=LOOPS, {bow=140, shift={}}={}){
     return {
         pos:{ lr:{x:0,y:0}, rr:{x:w,y:0}, rl:{x:0,y:h}, bh:{x:w,y:h} },
@@ -525,489 +583,209 @@ function grid(w, h, loop=LOOPS, {bow=140, shift={}}={}){
 const LAYOUTS = {
     wide:        grid(560, 420),
     tall:        grid(420, 560),
-    // Landscape phones: a gentler rr<->lr bow keeps the lower list clear of
-    // the diagonal Basket line.
-    wideCompact: grid(460, 300, LOOPS_HORIZONTAL, { bow: 120, shift: { "lr|rr": 0.1 } }),
-    // Portrait phones: the two vertical labels would sit level with the
-    // diagonal's label, so move one up and one down out of its way.
-    tallCompact: grid(260, 560, LOOPS_VERTICAL, {
-        bow: 100,
-        shift: { "rl|lr": -0.25, "bh|rr": 0.25 }
-    })
+    // landscape phones: a gentler bow keeps the lower list clear of the diagonal
+    wideCompact: grid(460, 300, LOOPS_HORIZONTAL, { bow:120, shift:{ "lr|rr":0.1 } }),
+    // portrait phones: move the vertical labels away from the diagonal's label
+    tallCompact: grid(260, 560, LOOPS_VERTICAL, { bow:100, shift:{ "rl|lr":-0.25, "bh|rr":0.25 } })
 };
 
-// Phones in either orientation: narrow (portrait) or short (landscape).
-const compactQuery = window.matchMedia("(max-width:700px), (max-height:500px)");
-const isCompact = () => compactQuery.matches;
-const fitPadding = () => isCompact() ? 20 : 50;
-const labelFontSize = () => isCompact() ? 19 : 15;
-
-let layout = LAYOUTS.wide;
-
 function currentLayout(){
-    const cyEl = document.getElementById("cy");
-    const shape = cyEl.clientHeight > cyEl.clientWidth ? "tall" : "wide";
-    return LAYOUTS[isCompact() ? shape + "Compact" : shape];
+    const shape = dom.cy.clientHeight > dom.cy.clientWidth ? "tall" : "wide";
+    return LAYOUTS[isCompact() ? `${shape}Compact` : shape];
 }
+
+// =====================================================================
+// Cytoscape
+// =====================================================================
 
 const cy = cytoscape({
-
-container:document.getElementById("cy"),
-
-elements,
-
-style:[
-
-{
-selector:"node.state",
-style:{
-'shape':'round-rectangle',
-'width':84,
-'height':84,
-'background-color':'white',
-'border-width':1,
-'border-color':'#cfcfcf',
-'background-image':'data(icon)',
-'background-fit':'contain',
-'background-clip':'none',
-'background-width':'92%',
-'background-height':'92%'
-}
-},
-
-{
-selector:"edge",
-style:{
-'label':'data(edgeLabel)',
-'curve-style':'bezier',
-'text-wrap':'wrap',
-'text-max-width':'180px',
-'text-justification':'center',
-'line-height':1.3,
-'source-endpoint':'outside-to-node',
-'target-endpoint':'outside-to-node',
-'target-arrow-shape':'triangle',
-'line-color':'#8c8c8c',
-'target-arrow-color':'#8c8c8c',
-'font-size':15,
-// the device's own UI font is crisper on screen than Helvetica fallbacks
-'font-family':FONT,
-'color':'#222',
-'text-rotation':'none',
-'text-background-shape':'roundrectangle',
-'text-background-opacity':1,
-'text-background-color':'#fafafa',   // same as the graph background, so the box is invisible
-'text-background-padding':4,
-// thicker line = more moves on that transition
-'width':'mapData(count, 1, 10, 1.5, 4)',
-'arrow-scale':1.2
-}
-},
-
-{
-selector:"edge:simple",
-style:{
-'text-margin-x':'data(mx)',
-'text-margin-y':'data(my)',
-'curve-style':'unbundled-bezier',
-'control-point-distances':'data(bow)',
-'control-point-weights':0.5
-}
-},
-
-{
-selector:"edge:loop",
-style:{
-'loop-direction':'data(loopDirection)',
-'loop-sweep':'50deg',
-'control-point-step-size':110,
-// push the list off the loop so the loop itself stays visible
-'text-margin-x':'data(mx)',
-'text-margin-y':'data(my)'
-}
-},
-
-{
-selector:"edge.compact",
-style:{
-'font-size':19
-}
-},
-
-{
-selector:"edge.dim",
-style:{
-// pushed into the background, but the structure stays visible
-'line-color':'#cdcdcd',
-'target-arrow-color':'#cdcdcd',
-'color':'#737373',
-}
-},
-
-{
-selector:".highlight",
-style:{
-'line-color':ACCENT,
-'target-arrow-color':ACCENT,
-'width':'mapData(count, 1, 10, 3.5, 6)',
-'color':ACCENT,
-'font-weight':'bold',
-'z-index':999
-}
-},
-
-{
-selector:"edge.transition",
-style:{
-// label sits a third of the way along (near where the hand change happens)
-// so it doesn't collide with move labels at the middle of nearby lines
-'label':'',
-'source-label':'data(edgeLabel)',
-'source-text-offset':'data(labelOffset)',
-'line-style':'dashed',
-'line-dash-pattern':[8,6],
-'width':2.5,
-'font-style':'italic',
-'font-weight':'normal',
-}
-},
-
-{
-selector:"node.pulse",
-style:{
-'shape':'ellipse',
-'width':'data(size)',
-'height':'data(size)',
-'background-color':'white',
-// soft glow around each dot
-'underlay-color':'white',
-'underlay-padding':4,
-'underlay-opacity':0.45,
-'underlay-shape':'ellipse',
-'opacity':0,
-'events':'no',
-'z-index':1000
-}
-}
-
-],
-
-layout:{ name:"preset" }
-
+    container: dom.cy,
+    elements: buildElements(),
+    layout: { name:"preset" },
+    style: [
+        { selector:"node.state", style:{
+            "shape":"round-rectangle",
+            "width":84, "height":84,
+            "background-color":"white",
+            "border-width":1, "border-color":"#cfcfcf",
+            "background-image":"data(icon)",
+            "background-fit":"contain",
+            "background-clip":"none",
+            "background-width":"92%", "background-height":"92%"
+        }},
+        { selector:"edge", style:{
+            "label":"data(edgeLabel)",
+            "curve-style":"bezier",
+            "text-wrap":"wrap",
+            "text-max-width":"180px",
+            "text-justification":"center",   // "left" mis-positions wrapped text in Cytoscape
+            "line-height":LINE_HEIGHT,
+            "font-size":LABEL_SIZE.normal,
+            "font-family":FONT,
+            "color":"#222",
+            "text-rotation":"none",
+            "text-background-shape":"roundrectangle",
+            "text-background-opacity":1,
+            "text-background-color":"#fafafa",   // = canvas colour: box is invisible
+            "text-background-padding":4,
+            "source-endpoint":"outside-to-node",
+            "target-endpoint":"outside-to-node",
+            "target-arrow-shape":"triangle",
+            "line-color":"#8c8c8c",
+            "target-arrow-color":"#8c8c8c",
+            "width":"mapData(count, 1, 10, 1.5, 4)",   // thicker = more moves
+            "arrow-scale":1.2
+        }},
+        { selector:"edge:simple", style:{
+            "curve-style":"unbundled-bezier",
+            "control-point-distances":"data(bow)",
+            "control-point-weights":0.5,
+            "text-margin-x":"data(mx)",
+            "text-margin-y":"data(my)"
+        }},
+        { selector:"edge:loop", style:{
+            "loop-direction":"data(loopDirection)",
+            "loop-sweep":"50deg",
+            "control-point-step-size":110,
+            "text-margin-x":"data(mx)",     // list sits beyond the loop
+            "text-margin-y":"data(my)"
+        }},
+        { selector:"edge.compact", style:{ "font-size":LABEL_SIZE.compact }},
+        { selector:"edge.dim", style:{
+            // in the background, but the structure stays visible
+            "line-color":"#cdcdcd",
+            "target-arrow-color":"#cdcdcd",
+            "color":"#737373"
+        }},
+        { selector:".highlight", style:{
+            "line-color":ACCENT,
+            "target-arrow-color":ACCENT,
+            "width":"mapData(count, 1, 10, 3.5, 6)",
+            "color":ACCENT,
+            "font-weight":"bold",
+            "z-index":999
+        }},
+        { selector:"edge.transition", style:{
+            // label a quarter of the way along, clear of nearby move labels
+            "label":"",
+            "source-label":"data(edgeLabel)",
+            "source-text-offset":"data(labelOffset)",
+            "line-style":"dashed",
+            "line-dash-pattern":[8,6],
+            "width":2.5,
+            "font-style":"italic",
+            "font-weight":"normal"
+        }},
+        { selector:"node.pulse", style:{
+            "shape":"ellipse",
+            "width":"data(size)", "height":"data(size)",
+            "background-color":"white",
+            "underlay-color":"white",        // soft glow
+            "underlay-padding":4,
+            "underlay-opacity":0.45,
+            "underlay-shape":"ellipse",
+            "opacity":0,
+            "events":"no",
+            "z-index":1000
+        }}
+    ]
 });
 
-// ---------- Labels ----------
+// --- Cytoscape internals ------------------------------------------------
+// The comet and the per-line highlight need each edge's drawn curve and
+// label box, which Cytoscape keeps privately. This is why the library
+// version is pinned; if it's upgraded, these two functions are what to check.
+
+// Quadratic curve chain [start, control, end, control, end, ...] as x,y
+// pairs, or null if the edge hasn't been drawn yet.
+function edgeCurves(edge){
+    const pts = edge._private.rscratch?.allpts;
+    return pts && pts.length >= 6 ? pts : null;
+}
+
+// Label box in model coordinates ("main" label, or "source" label).
+function labelBox(edge, which="main"){
+    const box = edge._private.labelBounds?.[which];
+    return box && box.w > 0 && box.h > 0 ? box : null;
+}
+
+const graphElements = () => cy.elements().not(".pulse");
+const moveEdge = name => cy.edges().filter(e=>e.data("moves").includes(name))[0];
+
+// =====================================================================
+// Labels & fitting
+// =====================================================================
 
 const measureCtx = document.createElement("canvas").getContext("2d");
 
-// Shift each loop's label outward (in the loop's direction) by half its
-// size, so the label sits beyond the loop instead of covering it.
+// Push each loop's label outward (in the loop's direction) by half its
+// size, so it sits beyond the loop instead of covering it.
 function offsetLoopLabels(){
     const size = labelFontSize();
     cy.edges(":loop").forEach(edge=>{
         const lines = edge.data("edgeLabel").split("\n");
         measureCtx.font = `${edge.hasClass("highlight") ? "bold " : ""}${size}px ${FONT}`;
         const w = Math.max(...lines.map(l=>measureCtx.measureText(l).width)) + 10;
-        const h = lines.length * size * 1.3 + 10;
+        const h = lines.length * size * LINE_HEIGHT + 10;
         const rad = edge.data("loopDirection") * Math.PI / 180;
-        const sx = Math.sin(rad), sy = -Math.cos(rad);
         const snap = v => Math.abs(v) < 0.1 ? 0 : Math.sign(v);
         edge.data({
-            mx: snap(sx) * (w/2 + 12),
-            my: snap(sy) * (h/2 + 12)
+            mx: snap(Math.sin(rad)) * (w/2 + 12),
+            my: snap(-Math.cos(rad)) * (h/2 + 12)
         });
     });
 }
 
-// Every edge always shows its label; phones just use a larger font.
 function updateLabels(){
-    const compact = isCompact();
-    cy.edges().forEach(edge=>edge.toggleClass("compact", compact));
+    cy.edges().toggleClass("compact", isCompact());
     offsetLoopLabels();
-    keepLabelsOnScreen();
 }
 
-// Highlighting changes label text (and makes it bold), which can push a
-// label off the edge on phones. If it does, zoom out just enough to fit.
-function keepLabelsOnScreen(){
-    if(!isCompact()) return;
+// The view is fitted once per layout with every full list showing; that
+// viewport is the baseline. A highlighted label can poke out of it (it's
+// bold), in which case we zoom out for that view, and return to the
+// baseline afterwards rather than ratcheting smaller each time.
+let baseViewport = null;
+
+function fitView(){
+    cy.viewport(baseViewport);
     const box = graphElements().renderedBoundingBox();
     const pad = 4;
-    if(box.x1 < pad || box.y1 < pad ||
-       box.x2 > cy.width() - pad || box.y2 > cy.height() - pad){
+    if(box.x1 < pad || box.y1 < pad || box.x2 > cy.width() - pad || box.y2 > cy.height() - pad){
         cy.fit(graphElements(), fitPadding());
     }
 }
 
+let layout = LAYOUTS.wide;
+
 function applyLayout(){
     layout = currentLayout();
-    cy.edges(":loop").forEach(edge=>{
-        edge.data("loopDirection", layout.loop[edge.data("source")]);
-    });
-    cy.nodes(".state").forEach(node=>node.position(layout.pos[node.id()]));
+    cy.nodes(".state").positions(node=>layout.pos[node.id()]);
+    cy.edges(":loop").forEach(edge=>edge.data("loopDirection", layout.loop[edge.data("source")]));
     cy.edges(":simple").not(".transition").forEach(edge=>{
+        const {source, target} = edge.data();
         if(edge.data("hasReverse")) edge.data("bow", layout.bow);
-        // label shift along the line, as a margin (straight lines only)
-        const f = layout.shift[`${edge.data("source")}|${edge.data("target")}`] || 0;
-        const a = layout.pos[edge.data("source")], b = layout.pos[edge.data("target")];
-        edge.data({ mx: (b.x-a.x)*f, my: (b.y-a.y)*f });
+        // label shift along the (straight) line, applied as a margin
+        const f = layout.shift[`${source}|${target}`] || 0;
+        const a = layout.pos[source], b = layout.pos[target];
+        edge.data({ mx:(b.x-a.x)*f, my:(b.y-a.y)*f });
     });
     cy.resize();
-    updateLabels();   // before fit, so the fit accounts for label sizes
+    resetGraph();
+    updateLabels();
     cy.fit(graphElements(), fitPadding());
-    resetPulsePath();  // lines moved, so the pulse needs the new shapes
+    baseViewport = { zoom:cy.zoom(), pan:{...cy.pan()} };
+    render();
 }
 
-// ---------- Pulse animation ----------
-// A white comet glides along the highlighted lines, move by move in
-// execution order, pauses briefly, then repeats. Its path comes from
-// Cytoscape's internal edge geometry: every edge here is drawn as a chain
-// of quadratic curves stored in rscratch.allpts as
-// [start, control, end, control, end, ...] (x,y pairs).
+// =====================================================================
+// Highlighting
+// =====================================================================
 
-const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
-const PULSE_SPEED = 320;     // model units per second
-const PULSE_PAUSE = 700;     // ms with no comet between loops
-const PULSE_TAIL = [         // head first: size and opacity of each dot
-    {size:15, alpha:1},
-    {size:13, alpha:0.85},
-    {size:12, alpha:0.7},
-    {size:11, alpha:0.55},
-    {size:10, alpha:0.42},
-    {size:9,  alpha:0.3},
-    {size:8,  alpha:0.2},
-    {size:7,  alpha:0.12}
-];
-const PULSE_SPACING = 7;     // distance between tail dots
-
-const pulseDots = cy.add(PULSE_TAIL.map((d,i)=>({
-    group:"nodes",
-    data:{ id:"pulse"+i, size:d.size },
-    classes:"pulse",
-    position:{x:0, y:0}
-}))).ungrabify().unselectify();
-
-let pulseRoute = [];
-let pulsePath = null;
-let pulseStart = 0;
-let pulseFrame = null;
-
-function graphElements(){
-    return cy.elements().not(".pulse");
-}
-
-// Sample the route into one polyline with cumulative distances.
-function buildPulsePath(){
-    const pts = [];
-    let incomplete = false;
-    const add = (x,y)=>{
-        const n = pts.length;
-        if(n && Math.hypot(x-pts[n-1].x, y-pts[n-1].y) < 0.01) return;
-        pts.push({x,y});
-    };
-    const startIdx = [];
-    for(const edge of pulseRoute){
-        startIdx.push(pts.length);
-        if(edge.removed()) continue;
-        // freshly added edges have no geometry until Cytoscape draws them
-        const a = edge._private.rscratch && edge._private.rscratch.allpts;
-        if(!a || a.length < 6){ incomplete = true; continue; }
-        for(let i=0; i+5<a.length; i+=4){
-            const [x0,y0,cx,cy_,x1,y1] = a.slice(i, i+6);
-            for(let k=0; k<=24; k++){
-                const t=k/24, u=1-t;
-                add(u*u*x0 + 2*u*t*cx + t*t*x1, u*u*y0 + 2*u*t*cy_ + t*t*y1);
-            }
-        }
-    }
-    const cum = [0];
-    for(let i=1; i<pts.length; i++){
-        cum.push(cum[i-1] + Math.hypot(pts[i].x-pts[i-1].x, pts[i].y-pts[i-1].y));
-    }
-    // distance along the path where each route step begins
-    const starts = startIdx.map(i=>cum[Math.min(i, cum.length-1)] || 0);
-    return { pts, cum, starts, total: cum[cum.length-1] || 0, incomplete };
-}
-
-function pointAt(path, d){
-    const {pts, cum} = path;
-    let lo=0, hi=cum.length-1;
-    while(hi-lo > 1){
-        const mid=(lo+hi)>>1;
-        if(cum[mid] <= d) lo=mid; else hi=mid;
-    }
-    const span = cum[hi]-cum[lo] || 1;
-    const t = (d-cum[lo])/span;
-    return { x: pts[lo].x + (pts[hi].x-pts[lo].x)*t,
-             y: pts[lo].y + (pts[hi].y-pts[lo].y)*t };
-}
-
-// Boxes of all visible edge labels (model coordinates). Uses Cytoscape's
-// internal labelBounds, which is why the library version is pinned.
-function labelBoxes(){
-    const boxes = [];
-    cy.edges().forEach(edge=>{
-        const lb = edge._private.labelBounds || {};
-        for(const b of [lb.main, lb.source]){
-            if(b && b.w > 0 && b.h > 0) boxes.push(b);
-        }
-    });
-    return boxes;
-}
-
-function hidePulse(){
-    pulseDots.style("opacity", 0);
-}
-
-function resetPulsePath(){
-    pulsePath = null;
-}
-
-// steps: caption key for each route edge ("m0" = first move, "t0" = hand
-// transition after it); owner: index of the combination being shown.
-let pulseSteps = [];
-let pulseOwner = -1;
-let activeStep = -1;
-
-// Light up the move currently being travelled: its line's label on the
-// graph, and (if the caption shows this combination) its name in the caption.
-function setActiveStep(j){
-    if(j === activeStep) return;
-    activeStep = j;
-    caption.querySelectorAll(".current").forEach(el=>el.classList.remove("current"));
-    updateStepHighlight();
-    if(j < 0 || !pulseRoute[j]) return;
-    if(pulseOwner >= 0 && pulseOwner === selected){
-        const el = caption.querySelector(`[data-step="${pulseSteps[j]}"]`);
-        if(el){
-            el.classList.add("current");
-            // keep the current step centred in a caption that overflows
-            caption.scrollLeft = el.offsetLeft - (caption.clientWidth - el.offsetWidth) / 2;
-        }
-    }
-}
-
-const stepHighlight = document.getElementById("stepHighlight");
-
-// Position the HTML highlight over the one line of the current edge's label
-// that belongs to the active step. Uses Cytoscape's internal labelBounds
-// (model coordinates, including padding), converted to screen coordinates.
-function updateStepHighlight(){
-    const edge = activeStep >= 0 ? pulseRoute[activeStep] : null;
-    const isTransition = edge && edge.hasClass("transition");
-    const lb = edge && !edge.removed() && edge._private.labelBounds || {};
-    const box = isTransition ? lb.source : lb.main;
-    if(!box || !(box.w > 0)){
-        stepHighlight.style.display = "none";
-        return;
-    }
-    const lines = edge.data("edgeLabel").split("\n");
-    let k = 0;
-    if(!isTransition){
-        const n = Number(pulseSteps[activeStep].slice(1)) + 1;     // "m1" -> step 2
-        k = Math.max(0, lines.findIndex(l=>l.startsWith(`${n}. `)));
-    }
-    // match the label's exact font so the highlighted text is the same size
-    const fs = parseFloat(edge.style("font-size")) || labelFontSize(), lh = fs * 1.3;
-    const zoom = cy.zoom(), pan = cy.pan();
-    const textTop = box.y1 + (box.h - lines.length*lh) / 2;
-    const inset = 0;   // fill the label's full width
-    Object.assign(stepHighlight.style, {
-        display: "block",
-        left:   `${(box.x1 + inset) * zoom + pan.x}px`,
-        top:    `${(textTop + k*lh) * zoom + pan.y}px`,
-        width:  `${(box.w - 2*inset) * zoom}px`,
-        height: `${lh * zoom}px`,
-        fontSize:   `${fs * zoom}px`,
-        lineHeight: `${lh * zoom}px`,
-        fontFamily: edge.style("font-family"),
-        fontStyle:  edge.style("font-style"),
-        fontWeight: edge.style("font-weight")
-    });
-    stepHighlight.textContent = lines[k];
-}
-
-function setPulseRoute(edges, steps=[], owner=-1){
-    pulseRoute = edges;
-    pulseSteps = steps;
-    pulseOwner = owner;
-    activeStep = -2;          // force a refresh
-    setActiveStep(-1);
-    pulsePath = null;
-    pulseStart = performance.now();
-    if(!edges.length || reduceMotion.matches){
-        hidePulse();
-        return;
-    }
-    if(pulseFrame === null) pulseFrame = requestAnimationFrame(pulseTick);
-}
-
-let lastCycle = -1;
-function pulseTick(now){
-    pulseFrame = null;
-    if(!pulseRoute.length || reduceMotion.matches){
-        hidePulse();
-        setActiveStep(-1);
-        return;
-    }
-    // (new connector edges only get their shape after the next render)
-    if(!pulsePath || pulsePath.incomplete) pulsePath = buildPulsePath();
-    const total = pulsePath.total;
-    if(total > 0){
-        const travel = total / PULSE_SPEED * 1000;
-        const cycleLen = travel + PULSE_PAUSE;
-        const elapsed = now - pulseStart;
-        const cycle = Math.floor(elapsed / cycleLen);
-        if(cycle !== lastCycle){
-            // refresh the shape each loop in case lines were re-laid out
-            lastCycle = cycle;
-            pulsePath = buildPulsePath();
-        }
-        const head = (elapsed % cycleLen) / travel * total;
-        let step = -1;
-        if(head <= total){
-            pulsePath.starts.forEach((d,j)=>{ if(d <= head) step = j; });
-        }
-        setActiveStep(step);
-        updateStepHighlight();     // follows zoom/pan/relayout
-        const boxes = labelBoxes();
-        cy.batch(()=>{
-            pulseDots.forEach((dot,i)=>{
-                const d = head - i*PULSE_SPACING;
-                if(d < 0 || d > total){
-                    dot.style("opacity", 0);
-                    return;
-                }
-                const pos = pointAt(pulsePath, d);
-                dot.position(pos);
-                // Nodes always draw above edge labels, so to make the comet
-                // pass *under* a label, hide any dot (incl. glow) touching one.
-                const r = PULSE_TAIL[i].size/2 + 4;
-                const covered = boxes.some(b=>
-                    pos.x + r > b.x1 && pos.x - r < b.x2 &&
-                    pos.y + r > b.y1 && pos.y - r < b.y2);
-                dot.style("opacity", covered ? 0 : PULSE_TAIL[i].alpha);
-            });
-        });
-    }
-    pulseFrame = requestAnimationFrame(pulseTick);
-}
-
-reduceMotion.addEventListener("change", ()=>setPulseRoute(pulseRoute));
-
-// ---------- Highlighting ----------
-
-function clearHighlight(){
+function resetGraph(){
     cy.edges(".transition").remove();
     cy.elements().removeClass("dim highlight");
     cy.edges().forEach(edge=>edge.data("edgeLabel", edge.data("fullLabel")));
-    updateLabels();
-    setPulseRoute([]);
-}
-
-function dimAll(){
-    clearHighlight();
-    cy.edges().addClass("dim");
 }
 
 function lightUp(edge, label){
@@ -1015,27 +793,24 @@ function lightUp(edge, label){
     edge.data("edgeLabel", label);
 }
 
-const moveEdge = name => cy.edges().filter(e=>(e.data("moves")||[]).includes(name))[0];
-
-// Pick a curve for a connector from s to t that doesn't sit on top of an
-// existing line between the same two states (in either direction).
+// Curve for a connector s -> t that doesn't lie on an existing line
+// between the same two states (in either direction).
 function connectorBow(s, t){
     const taken = [];
     cy.edges(":simple").not(".transition").forEach(e=>{
-        if(e.data("source")===s && e.data("target")===t) taken.push(e.data("bow"));
-        if(e.data("source")===t && e.data("target")===s) taken.push(-e.data("bow"));
+        if(e.data("source") === s && e.data("target") === t) taken.push(e.data("bow"));
+        if(e.data("source") === t && e.data("target") === s) taken.push(-e.data("bow"));
     });
     return [0, 90, -90, 180, -180].find(b=>taken.every(x=>Math.abs(x-b) >= 60)) ?? 0;
 }
 
-// A dashed connector for a hand transition, shown only while its
-// combination is highlighted.
-function addTransition(from, to, note, n){
+// A dashed connector for a hand transition (exists only while shown).
+function addTransition(from, to, note, index){
     const a = cy.$id(from).position(), b = cy.$id(to).position();
     return cy.add({
         group:"edges",
         data:{
-            id:`transition${n}`,
+            id:`transition-${index}`,
             source:from, target:to,
             moves:[], count:1,
             edgeLabel:note, fullLabel:note,
@@ -1047,235 +822,397 @@ function addTransition(from, to, note, n){
     })[0];   // the edge itself, not the collection cy.add() returns
 }
 
-// Highlight a combination: each edge it uses shows only the combo's moves
-// on that edge, numbered by execution order. Where one move ends in a
-// different hand position from where the next starts, a dashed connector
-// labelled with the hand transition bridges the gap.
-function highlight(comboMoves, notes={}, owner=-1){
-    dimAll();
+// Light up a combination. Each of its edges shows only the combination's
+// moves, numbered; a dashed connector bridges any hand transition.
+// Returns the steps in execution order: {edge, kind, index, line}.
+function showCombo(combo){
+    const transitions = combo.transitions || {};
+    cy.edges().addClass("dim");
     cy.edges().forEach(edge=>{
         const own = edge.data("moves");
-        const steps = comboMoves
-            .map((name,i)=>({name, step:i+1}))
-            .filter(({name})=>own.includes(name));
-        if(steps.length){
-            lightUp(edge, steps.map(s=>`${s.step}. ${s.name}`).join("\n"));
-        }
+        const lines = combo.moves
+            .map((name,i)=>`${i+1}. ${name}`)
+            .filter((_,i)=>own.includes(combo.moves[i]));
+        if(lines.length) lightUp(edge, lines.join("\n"));
     });
-    // pulse travels the moves (and any hand transitions) in execution order
-    const route = [], steps = [];
-    comboMoves.forEach((name,i)=>{
+    const steps = [];
+    combo.moves.forEach((name,i)=>{
         const edge = moveEdge(name);
         if(!edge) return;
-        route.push(edge); steps.push(`m${i}`);
-        const next = moveEdge(comboMoves[i+1]);
+        steps.push({ edge, kind:"move", index:i, line:`${i+1}. ` });
+        const next = moveEdge(combo.moves[i+1]);
         if(next && edge.data("target") !== next.data("source")){
-            route.push(addTransition(edge.data("target"), next.data("source"),
-                                     notes[name] || "hand change", i));
-            steps.push(`t${i}`);
+            const conn = addTransition(edge.data("target"), next.data("source"),
+                                       transitions[name] || "hand change", i);
+            steps.push({ edge:conn, kind:"transition", index:i });
         }
     });
-    updateLabels();
-    setPulseRoute(route, steps, owner);
+    return steps;
 }
 
-// Highlight a single edge with its full move list (used when tapping a line).
-function highlightEdge(edge){
-    dimAll();
+// Light up one edge with its full list (a tapped line).
+function showEdge(edge){
+    cy.edges().addClass("dim");
     lightUp(edge, edge.data("fullLabel"));
+    return [{ edge, kind:"edge", index:0 }];
+}
+
+// Redraw the graph for the current preview/selection.
+function render(){
+    const view = state.preview || state.selection;
+    resetGraph();
+    let steps = [];
+    if(view?.kind === "combo") steps = showCombo(view.combo);
+    else if(view?.kind === "edge") steps = showEdge(view.edge);
     updateLabels();
-    setPulseRoute([edge]);
+    if(baseViewport) fitView();
+    startPulse(steps, view);
 }
 
-// ---------- Menu ----------
+// =====================================================================
+// Pulse: a comet travelling the highlighted path
+// =====================================================================
+// A white comet glides along the highlighted lines in execution order,
+// pauses, and repeats. The step it's on is lit up in the caption and on
+// its line of the graph label.
 
-const menuBtn=document.getElementById("menuBtn");
+const PULSE = {
+    speed: 320,          // model units per second
+    pause: 700,          // ms between laps
+    spacing: 7,          // distance between tail dots
+    tail: [              // head first
+        {size:15, alpha:1},    {size:13, alpha:0.85}, {size:12, alpha:0.7},
+        {size:11, alpha:0.55}, {size:10, alpha:0.42}, {size:9,  alpha:0.3},
+        {size:8,  alpha:0.2},  {size:7,  alpha:0.12}
+    ]
+};
 
-function openMenu(){
-    document.body.classList.add("menu-open");
-    menuBtn.setAttribute("aria-expanded","true");
-    const target = document.querySelector(".combo.active") || document.querySelector(".combo");
-    target.focus({preventScroll:true});
-    target.scrollIntoView({block:"nearest"});
+const pulseDots = cy.add(PULSE.tail.map((d,i)=>({
+    group:"nodes", data:{ id:`pulse${i}`, size:d.size }, classes:"pulse", position:{x:0, y:0}
+}))).ungrabify().unselectify();
+
+const pulse = {
+    steps: [],       // [{edge, kind, index, line}]
+    owner: null,     // the view (selection/preview) the steps belong to
+    path: null,      // sampled polyline, see buildPath()
+    start: 0,
+    lap: -1,
+    frame: null,
+    active: -1       // index of the step the comet is on
+};
+
+// Sample the steps' curves into one polyline with cumulative distances.
+function buildPath(){
+    const pts = [], startIdx = [];
+    let incomplete = false;
+    const add = (x,y)=>{
+        const last = pts[pts.length-1];
+        if(!last || Math.hypot(x-last.x, y-last.y) >= 0.01) pts.push({x,y});
+    };
+    for(const {edge} of pulse.steps){
+        startIdx.push(pts.length);
+        if(edge.removed()) continue;
+        const a = edgeCurves(edge);
+        if(!a){ incomplete = true; continue; }   // not drawn yet: retry next frame
+        for(let i=0; i+5<a.length; i+=4){
+            const [x0,y0, qx,qy, x1,y1] = a.slice(i, i+6);
+            for(let k=0; k<=24; k++){
+                const t = k/24, u = 1-t;
+                add(u*u*x0 + 2*u*t*qx + t*t*x1, u*u*y0 + 2*u*t*qy + t*t*y1);
+            }
+        }
+    }
+    const cum = [0];
+    for(let i=1; i<pts.length; i++){
+        cum.push(cum[i-1] + Math.hypot(pts[i].x-pts[i-1].x, pts[i].y-pts[i-1].y));
+    }
+    const starts = startIdx.map(i=>cum[Math.min(i, cum.length-1)] || 0);
+    return { pts, cum, starts, total: cum[cum.length-1] || 0, incomplete };
 }
 
-function closeMenu(){
-    if(!document.body.classList.contains("menu-open")) return;
-    document.body.classList.remove("menu-open");
-    menuBtn.setAttribute("aria-expanded","false");
-    menuBtn.focus({preventScroll:true});
-    showSelected();   // undo any hover preview
+function pointAt(path, d){
+    const {pts, cum} = path;
+    let lo = 0, hi = cum.length-1;
+    while(hi - lo > 1){
+        const mid = (lo+hi) >> 1;
+        if(cum[mid] <= d) lo = mid; else hi = mid;
+    }
+    const t = (d - cum[lo]) / (cum[hi] - cum[lo] || 1);
+    return { x: pts[lo].x + (pts[hi].x-pts[lo].x)*t, y: pts[lo].y + (pts[hi].y-pts[lo].y)*t };
 }
 
-menuBtn.addEventListener("click",openMenu);
-document.getElementById("closeBtn").addEventListener("click",closeMenu);
-document.getElementById("backdrop").addEventListener("click",closeMenu);
-document.addEventListener("keydown",e=>{
-    if(e.key==="Escape") closeMenu();
-});
-
-// ---------- Selection state ----------
-
-const list=document.getElementById("comboList");
-const caption=document.getElementById("caption");
-const comboDivs=[];
-let selected=-1;          // index into combinations, -1 = none
-let selectedEdge=null;    // edge tapped directly, if any
-
-function showSelected(){
-    if(selected>=0)         highlight(combinations[selected][1], combinations[selected][2], selected);
-    else if(selectedEdge)   highlightEdge(selectedEdge);
-    else                    clearHighlight();
-}
-
-function setCaption(text, placeholder){
-    caption.innerHTML="";
-    const span=document.createElement("span");
-    if(placeholder) span.className="placeholder";
-    span.textContent=text;
-    caption.appendChild(span);
-}
-
-function arrowNode(){
-    const a = document.createElement("span");
-    a.className = "arrow";
-    a.textContent = " → ";
-    return a;
-}
-
-// Hand positions a combination passes through (start, then after each move),
-// drawn as tiny node icons: a "small multiple" of the combination's shape.
-function shapeNodes(moves){
-    const states = [];
-    moves.forEach(name=>{
-        const [from, to] = moveStates[name];
-        if(states[states.length-1] !== from) states.push(from);
-        states.push(to);
+function labelBoxes(){
+    const boxes = [];
+    cy.edges().forEach(edge=>{
+        for(const which of ["main","source"]){
+            const b = labelBox(edge, which);
+            if(b) boxes.push(b);
+        }
     });
-    const row = document.createElement("div");
-    row.className = "combo-shape";
-    row.setAttribute("aria-hidden", "true");
-    states.forEach((st,i)=>{
-        if(i) row.append(Object.assign(document.createElement("span"), {className:"arrow", textContent:"›"}));
-        row.append(Object.assign(document.createElement("img"), {src:nodeIcon(st), alt:""}));
-    });
-    return row;
+    return boxes;
 }
 
-// "Shoulder Block → [swap to R] → Block & Turn", built as DOM nodes.
-function sequenceNodes(moves, notes={}){
+function startPulse(steps, owner){
+    Object.assign(pulse, { steps, owner, path:null, start:performance.now(), lap:-1 });
+    setActiveStep(-1, true);
+    if(!steps.length || REDUCED_MOTION.matches){
+        pulseDots.style("opacity", 0);
+        return;
+    }
+    if(pulse.frame === null) pulse.frame = requestAnimationFrame(pulseTick);
+}
+
+function pulseTick(now){
+    pulse.frame = null;
+    if(!pulse.steps.length || REDUCED_MOTION.matches){
+        pulseDots.style("opacity", 0);
+        setActiveStep(-1);
+        return;
+    }
+    if(!pulse.path || pulse.path.incomplete) pulse.path = buildPath();
+    const {total} = pulse.path;
+    if(total > 0){
+        const travel = total / PULSE.speed * 1000;
+        const lapLength = travel + PULSE.pause;
+        const elapsed = now - pulse.start;
+        const lap = Math.floor(elapsed / lapLength);
+        if(lap !== pulse.lap){
+            pulse.lap = lap;
+            pulse.path = buildPath();     // pick up any relayout each lap
+        }
+        const head = (elapsed % lapLength) / travel * total;
+        let step = -1;
+        if(head <= total) pulse.path.starts.forEach((d,j)=>{ if(d <= head) step = j; });
+        setActiveStep(step);
+        updateStepHighlight();            // follows zoom/pan
+
+        const boxes = labelBoxes();
+        cy.batch(()=>pulseDots.forEach((dot,i)=>{
+            const d = head - i*PULSE.spacing;
+            if(d < 0 || d > total){ dot.style("opacity", 0); return; }
+            const pos = pointAt(pulse.path, d);
+            dot.position(pos);
+            // Dots always draw above labels; to pass *under* a label, hide
+            // any dot (including its glow) that touches one.
+            const r = PULSE.tail[i].size/2 + 4;
+            const covered = boxes.some(b=>
+                pos.x + r > b.x1 && pos.x - r < b.x2 && pos.y + r > b.y1 && pos.y - r < b.y2);
+            dot.style("opacity", covered ? 0 : PULSE.tail[i].alpha);
+        }));
+    }
+    pulse.frame = requestAnimationFrame(pulseTick);
+}
+
+REDUCED_MOTION.addEventListener("change", ()=>startPulse(pulse.steps, pulse.owner));
+
+const stepKey = step => `${step.kind}-${step.index}`;
+
+// Light up the step the comet is on: in the caption (if the caption is
+// showing this view) and on its line of the graph label.
+function setActiveStep(j, force=false){
+    if(j === pulse.active && !force) return;
+    pulse.active = j;
+    dom.caption.querySelectorAll(".current").forEach(el=>el.classList.remove("current"));
+    updateStepHighlight();
+    const step = pulse.steps[j];
+    if(!step || pulse.owner !== state.selection) return;
+    const chip = dom.caption.querySelector(`[data-step="${stepKey(step)}"]`);
+    if(chip){
+        chip.classList.add("current");
+        // keep the current chip centred in a caption that overflows
+        dom.caption.scrollLeft = chip.offsetLeft - (dom.caption.clientWidth - chip.offsetWidth) / 2;
+    }
+}
+
+// Cytoscape can't style one line of a label, so an HTML strip is laid over
+// the line belonging to the current step, in the label's exact font.
+function updateStepHighlight(){
+    const step = pulse.steps[pulse.active];
+    const edge = step && !step.edge.removed() ? step.edge : null;
+    const box = edge && labelBox(edge, step.kind === "transition" ? "source" : "main");
+    if(!box){
+        dom.stepHighlight.style.display = "none";
+        return;
+    }
+    const lines = edge.data("edgeLabel").split("\n");
+    const k = step.line ? Math.max(0, lines.findIndex(l=>l.startsWith(step.line))) : 0;
+    const fs = parseFloat(edge.style("font-size")) || labelFontSize();
+    const lh = fs * LINE_HEIGHT;
+    const zoom = cy.zoom(), pan = cy.pan();
+    const textTop = box.y1 + (box.h - lines.length*lh) / 2;
+    Object.assign(dom.stepHighlight.style, {
+        display:"block",
+        left:   `${box.x1 * zoom + pan.x}px`,
+        top:    `${(textTop + k*lh) * zoom + pan.y}px`,
+        width:  `${box.w * zoom}px`,
+        height: `${lh * zoom}px`,
+        fontSize:   `${fs * zoom}px`,
+        lineHeight: `${lh * zoom}px`,
+        fontFamily: edge.style("font-family"),
+        fontStyle:  edge.style("font-style"),
+        fontWeight: edge.style("font-weight")
+    });
+    dom.stepHighlight.textContent = lines[k];
+}
+
+// =====================================================================
+// Caption & menu
+// =====================================================================
+
+const el = (tag, props={}, ...children)=>{
+    const node = Object.assign(document.createElement(tag), props);
+    node.append(...children);
+    return node;
+};
+const arrow = (text=" → ") => el("span", {className:"arrow", textContent:text});
+
+// "Shoulder Block → [swap to R] → Block & Turn" as chips; data-step lets
+// the pulse light up the current one.
+function sequenceNodes(combo){
+    const transitions = combo.transitions || {};
     const parts = [];
-    moves.forEach((name,i)=>{
-        if(i) parts.push(arrowNode());
-        const step = document.createElement("span");
-        step.className = "step";
-        step.dataset.step = `m${i}`;
-        step.textContent = name;
-        parts.push(step);
-        if(notes[name] && i < moves.length-1){
-            const tag = document.createElement("span");
-            tag.className = "note";
-            tag.dataset.step = `t${i}`;
-            tag.textContent = notes[name];
-            parts.push(arrowNode(), tag);
+    combo.moves.forEach((name,i)=>{
+        if(i) parts.push(arrow());
+        const chip = el("span", {className:"step", textContent:name});
+        chip.dataset.step = `move-${i}`;
+        parts.push(chip);
+        if(transitions[name] && i < combo.moves.length-1){
+            const tag = el("span", {className:"note", textContent:transitions[name]});
+            tag.dataset.step = `transition-${i}`;
+            parts.push(arrow(), tag);
         }
     });
     return parts;
 }
 
-function select(index){
-    selected=index;
-    selectedEdge=null;
-
-    comboDivs.forEach((div,i)=>div.classList.toggle("active", i===selected));
-
-    if(selected<0){
-        setCaption("Choose a combination from ☰", true);
-    }else{
-        const [id,moves,notes]=combinations[selected];
-        caption.innerHTML="";
-        const label = Object.assign(document.createElement("span"), {className:"combo-id", textContent:`${id}`});
-        caption.append(label, ...sequenceNodes(moves, notes));
+// The hand positions a combination passes through, as tiny node icons.
+function shapeNodes(combo){
+    const states = [];
+    for(const name of combo.moves){
+        const {from, to} = MOVE_STATES.get(name) || {};
+        if(!from) continue;
+        if(states[states.length-1] !== from) states.push(from);
+        states.push(to);
     }
-
-    showSelected();
+    const row = el("div", {className:"combo-shape"});
+    row.setAttribute("aria-hidden", "true");
+    states.forEach((st,i)=>{
+        if(i) row.append(arrow("›"));
+        row.append(el("img", {src:nodeIcon(st), alt:""}));
+    });
+    return row;
 }
 
-function selectEdge(edge){
-    select(-1);
-    selectedEdge=edge;
-    const n=edge.data("count");
-    setCaption(`${edge.data("source")} → ${edge.data("target")}: ${n} move${n===1?"":"s"}`);
-    showSelected();
+function renderCaption(){
+    const sel = state.selection;
+    dom.caption.replaceChildren();
+    dom.caption.scrollLeft = 0;
+    if(sel?.kind === "combo"){
+        dom.caption.append(el("span", {className:"combo-id", textContent:`${sel.combo.id}`}),
+                           ...sequenceNodes(sel.combo));
+    }else if(sel?.kind === "edge"){
+        const n = sel.edge.data("count");
+        dom.caption.append(`${sel.edge.data("source")} → ${sel.edge.data("target")}: ${n} move${n === 1 ? "" : "s"}`);
+    }else{
+        dom.caption.append(el("span", {className:"placeholder", textContent:"Choose a combination from ☰"}));
+    }
 }
 
-combinations.forEach(([id,moves,notes],i)=>{
+const comboButtons = new Map();   // combo -> its menu button
 
-    const div=document.createElement("div");
-    div.className="combo";
-    div.setAttribute("role","button");
-    div.setAttribute("tabindex","0");
+function select(selection){
+    state.selection = selection;
+    const combo = selection?.kind === "combo" ? selection.combo : null;
+    comboButtons.forEach((btn,c)=>btn.classList.toggle("active", c === combo));
+    renderCaption();
+    render();
+}
 
-    div.innerHTML=`<div class="combo-title">Combination ${id}</div>`;
-    div.appendChild(shapeNodes(moves));
-    const seq=document.createElement("div");
-    seq.className="combo-moves";
-    seq.append(...sequenceNodes(moves, notes));
-    div.appendChild(seq);
+const selectCombo = combo => select(combo ? {kind:"combo", combo} : null);
+const selectEdge = edge => select({kind:"edge", edge});
 
-    // Picking a combination selects it and hides the menu.
-    div.addEventListener("click",()=>{
-        select(i);
-        closeMenu();
-    });
-    div.addEventListener("keydown",e=>{
-        if(e.key==="Enter"||e.key===" "){ e.preventDefault(); div.click(); }
-    });
+function stepCombo(delta){
+    const current = state.selection?.kind === "combo" ? COMBINATIONS.indexOf(state.selection.combo) : -1;
+    const n = COMBINATIONS.length;
+    const next = current < 0 ? (delta > 0 ? 0 : n-1) : (current + delta + n) % n;
+    selectCombo(COMBINATIONS[next]);
+}
 
-    // Hover preview for mouse users only (visible beside the menu on desktop).
-    div.addEventListener("pointerenter",e=>{
-        if(e.pointerType==="mouse") highlight(moves, notes, i);
-    });
-    div.addEventListener("pointerleave",e=>{
-        if(e.pointerType==="mouse") showSelected();
-    });
+function openMenu(){
+    document.body.classList.add("menu-open");
+    dom.menuBtn.setAttribute("aria-expanded", "true");
+    dom.container.inert = true;              // keep focus inside the menu
+    const target = dom.menu.querySelector(".combo.active") || dom.menu.querySelector(".combo");
+    target?.focus({preventScroll:true});
+    target?.scrollIntoView({block:"nearest"});
+}
 
-    list.appendChild(div);
-    comboDivs.push(div);
+function closeMenu(){
+    if(!document.body.classList.contains("menu-open")) return;
+    document.body.classList.remove("menu-open");
+    dom.menuBtn.setAttribute("aria-expanded", "false");
+    dom.container.inert = false;
+    dom.menuBtn.focus({preventScroll:true});
+    if(state.preview){ state.preview = null; render(); }
+}
+
+function buildMenu(){
+    for(const combo of COMBINATIONS){
+        const btn = el("button", {type:"button", className:"combo"},
+            el("span", {className:"combo-title", textContent:`Combination ${combo.id}`}),
+            shapeNodes(combo),
+            el("span", {className:"combo-moves"}, ...sequenceNodes(combo)));
+        btn.addEventListener("click", ()=>{ selectCombo(combo); closeMenu(); });
+        // hover preview for mouse users (visible beside the menu on desktop)
+        btn.addEventListener("pointerenter", e=>{
+            if(e.pointerType !== "mouse") return;
+            state.preview = {kind:"combo", combo};
+            render();
+        });
+        btn.addEventListener("pointerleave", e=>{
+            if(e.pointerType !== "mouse") return;
+            state.preview = null;
+            render();
+        });
+        dom.comboList.append(btn);
+        comboButtons.set(combo, btn);
+    }
+}
+
+// =====================================================================
+// Wiring
+// =====================================================================
+
+buildMenu();
+
+dom.menuBtn.addEventListener("click", openMenu);
+dom.closeBtn.addEventListener("click", closeMenu);
+dom.backdrop.addEventListener("click", closeMenu);
+document.addEventListener("keydown", e=>{ if(e.key === "Escape") closeMenu(); });
+dom.prevBtn.addEventListener("click", ()=>stepCombo(-1));
+dom.nextBtn.addEventListener("click", ()=>stepCombo(+1));
+
+// tap empty space to clear; tap a line to see all of its moves
+cy.on("tap", e=>{ if(e.target === cy) selectCombo(null); });
+cy.on("tap", "edge", e=>{
+    const edge = e.target;
+    if(edge.hasClass("transition")) return;
+    if(state.selection?.kind === "edge" && state.selection.edge === edge) selectCombo(null);
+    else selectEdge(edge);
 });
 
-document.getElementById("prevBtn").addEventListener("click",()=>{
-    select(selected<=0 ? combinations.length-1 : selected-1);
-});
-document.getElementById("nextBtn").addEventListener("click",()=>{
-    select(selected<0 || selected>=combinations.length-1 ? 0 : selected+1);
-});
-
-// Tap empty space to clear; tap a line to see all of its moves.
-cy.on("tap",e=>{
-    if(e.target===cy) select(-1);
-});
-cy.on("tap","edge",e=>{
-    if(e.target.hasClass("transition")) return;
-    if(selectedEdge===e.target) select(-1);
-    else selectEdge(e.target);
-});
-
-// ---------- Keep the graph fitted to the screen ----------
-
+// Re-lay out whenever the graph area changes size (window resize,
+// rotation, caption height) or the phone/desktop breakpoint flips.
 let resizeTimer;
-function refit(){
+const relayoutSoon = ()=>{
     clearTimeout(resizeTimer);
-    resizeTimer=setTimeout(applyLayout,150);
-}
+    resizeTimer = setTimeout(applyLayout, 150);
+};
+new ResizeObserver(relayoutSoon).observe(dom.graph);
+COMPACT.addEventListener("change", relayoutSoon);
 
-window.addEventListener("resize",refit);
-window.addEventListener("orientationchange",refit);
-compactQuery.addEventListener("change",refit);
-
-select(-1);
+renderCaption();
 applyLayout();
-
 </script>
 
 </body>
