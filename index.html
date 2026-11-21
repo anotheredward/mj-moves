@@ -2241,6 +2241,24 @@ button.cal-day{
 
 .nm-error:empty{ margin:0; }
 
+/* the move details panel: tips from a lesson */
+.mp-tips{
+    margin:0;
+    padding-left:20px;
+    font-size:15px;
+    line-height:1.45;
+}
+
+.mp-tips li{
+    margin-bottom:4px;
+}
+
+.mp-tips-from{
+    margin:2px 0 0;
+    font-size:12px;
+    color:var(--ink-faded);
+}
+
 /* the move details panel: a new move's way to its page */
 .mp-status{
     margin:10px 0 0;
@@ -3667,6 +3685,26 @@ const MOVES = [
 { name:"Short Manhattan",   from:"lr", to:"lr", level:"intromediate", energy:"medium", distance:"close", smoothness:"normal" }
 ];
 
+// Tips for individual moves, from a private lesson (November 2026).
+// Shown on the move's details and on the back of its flashcard.
+const MOVE_TIPS = {
+    "Back Pass":        ["Hand to belt buckle, to tuck the elbow and manage the spacing"],
+    "Block & Turn":     ["Turn to face your partner during the turn, so you have her hand and yours in front of you"],
+    "Left Side Change": ["Use a hand block", "Get out of the way late"],
+    "Hatchback":        ["Prep the right hand to the shoulder",
+                         "Press on her wrist or forearm for the best effect, not the elbow"],
+    "New Yorker":       ["Turn from the frame", "Step with your feet pointing in opposite directions", "Exit with a return"],
+    "Outside Turn":     ["Prep by feel, with a low hand", "Lead it when you're almost past each other (?)", "Turn your body to turn"],
+    "Figure Of 8":      ["Turn to your partner quicker, so your hand bounces in between you"],
+    "Short First Move": ["Don't cross behind, to keep the tension"],
+    "Shoulder Block":   ["Hold on the palm", "No need to lead with the elbow", "You can do a spin out"],
+    "Step Across":      ["Keep the hand low to your head"],
+    "Wurlitzer":        ["Lead with the frame more"],
+    "Yoyo":             ["The hand to the left shoulder should be lower", "Stand alongside one another", "Keep the hook",
+                         "When putting the hand out, keep it below her shoulder line for control",
+                         "The cross to the other side should make her step", "Have a clear block at the right height"]
+};
+
 // Your own moves, added in New Moves: intermediate moves, and variations
 // of another move. Kept on this device; they're added to MOVES after the
 // class moves, so the graph, combos, caller and flashcards all use them.
@@ -3828,6 +3866,9 @@ function planMoves(moves, {loops=false}={}){
         for(const [key, values] of Object.entries(FEEL)){
             if(!values.includes(m[key])) console.warn(`Move "${m.name}": unknown ${key} "${m[key]}"`);
         }
+    }
+    for(const name of Object.keys(MOVE_TIPS)){
+        if(!MOVE_STATES.has(name)) console.warn(`Move tips: unknown move "${name}"`);
     }
     for(const v of MOVE_VARIATIONS){
         const m = MOVE_STATES.get(v.move);
@@ -6586,6 +6627,10 @@ function flashCardView(){
     const followers = movePool().filter(m=>canFollow(name, m));
     facts.push(`Flows on into ${plural(followers.length, "move")} without a hand change`);
     card.append(el("ul", {className:"flash-facts"}, ...facts.map(f=>el("li", {textContent:f}))));
+    if(MOVE_TIPS[name]){
+        card.append(el("h3", {className:"log-h", textContent:"Tips"}),
+            el("ul", {className:"flash-facts"}, ...MOVE_TIPS[name].map(t=>el("li", {textContent:t}))));
+    }
     const steps = move.custom ? stepsView(newMoves.find(n=>n.id === move.id)?.steps) : null;
     if(steps) card.append(el("h3", {className:"log-h", textContent:"Steps"}), steps);
 
@@ -6824,6 +6869,11 @@ function showMoveDetails(name){
             el("span", {ariaHidden:"true", textContent:"→"}));
         page.addEventListener("click", ()=>openNewMoves(mine.id));
         parts.push(el("p", {className:"mp-text mp-status", textContent:`${statusOf(mine)[2]} ${statusOf(mine)[1]} · ${priorityOf(mine)[1]} priority`}), page);
+    }
+    if(MOVE_TIPS[name]){
+        parts.push(el("h3", {className:"mp-section", textContent:"Tips"}),
+            el("ul", {className:"mp-tips"}, ...MOVE_TIPS[name].map(t=>el("li", {textContent:t}))),
+            el("p", {className:"mp-text mp-tips-from", textContent:"From a private lesson"}));
     }
     parts.push(
         el("h3", {className:"mp-section", textContent:"Feel"}),
@@ -7234,6 +7284,39 @@ function logEntryView(entry){
             "Google Photos or iCloud instead."}),
         del);
 }
+
+// A Practice Log entry shared as a link: #log=<base64url JSON of
+// {date, type, notes, moves}>. The part after # never leaves the browser.
+// Opening it offers to add the entry to your log on this device.
+function importLogFromLink(){
+    const m = location.hash.match(/^#log=([\w-]+)$/);
+    if(!m) return;
+    try{ history.replaceState(null, "", location.pathname + location.search); }catch{}
+    let data;
+    try{
+        const bin = atob(m[1].replace(/-/g, "+").replace(/_/g, "/"));
+        data = JSON.parse(new TextDecoder().decode(Uint8Array.from(bin, c=>c.charCodeAt(0))));
+    }catch{ data = null; }
+    if(!data || typeof data.notes !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(data.date ?? "")){
+        showToast("That link doesn't hold a Practice Log entry");
+        return;
+    }
+    const moves = Array.isArray(data.moves) ? data.moves.filter(n=>MOVE_STATES.has(n)) : [];
+    if(logEntries.some(e=>e.date === data.date && e.notes === data.notes)){
+        showToast("That entry is already in your Practice Log");
+        return;
+    }
+    if(!confirm(`Add this entry to your Practice Log?\n\n${prettyDate(data.date)}\n${data.notes.slice(0, 300)}`)) return;
+    const entry = { id:`log-${Date.now()}`, date:data.date, created:Date.now(), type:data.type === "practice" ? "practice" : "class",
+                    notes:data.notes, combos:[], moves, videos:[] };
+    logEntries.unshift(entry);
+    saveLog();
+    logOpenId = entry.id;
+    openPage(dom.logPage, dom.logClose);
+    renderLog();
+}
+window.addEventListener("load", ()=>setTimeout(importLogFromLink, 300));
+window.addEventListener("hashchange", importLogFromLink);
 
 function closeLog(){
     if(dom.logPage.hidden) return;
