@@ -5009,7 +5009,7 @@ function showMoveDetails(name){
                 el("h2", {id:"moveTitle", textContent:name}),
                 el("span", {className:`mp-level ${move.level}`, textContent:move.level})),
             close),
-        el("div", {className:"mp-holds"}, hold(move.from, "Starts in"), el("span", {className:"arrow", textContent:"→"}), hold(move.to, "Finishes in")),
+        el("div", {className:"mp-holds"}, hold(move.from, "Starts"), el("span", {className:"arrow", textContent:"→"}), hold(move.to, "Finishes")),
         el("h3", {className:"mp-section", textContent:"Feel"}),
         el("p", {className:"mp-text feel-why", textContent:"Helps us choose which move best matches a moment in a song. " +
             "High energy, distant moves for big moments. Sharp bouncy moves to match a rhythm. Smooth or close for delicate moments."}),
