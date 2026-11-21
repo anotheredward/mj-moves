@@ -1156,44 +1156,40 @@ body.menu-open #backdrop{
     filter:brightness(1.3);
 }
 
-/* energy / distance / smoothness: three steps, the move's one filled */
+/* energy / distance / smoothness: three tiles with an emoji each */
 .feel{
     display:grid;
-    gap:6px;
-    max-width:320px;
-    margin:16px auto 4px;
-    font-size:14px;
+    grid-template-columns:repeat(3, 1fr);
+    gap:8px;
+    margin:16px 0 4px;
 }
 
-.feel-row{
-    display:grid;
-    grid-template-columns:92px auto 1fr;
-    align-items:center;
-    gap:10px;
-}
-
-.feel-key{
-    color:var(--ink-soft);
-}
-
-.feel-scale{
+.feel-item{
     display:flex;
-    gap:3px;
+    flex-direction:column;
+    align-items:center;
+    gap:1px;
+    padding:8px 4px;
+    border-radius:10px;
+    background:var(--canvas);
+    border:1px solid var(--rule);
+    text-align:center;
 }
 
-.feel-scale i{
-    width:22px;
-    height:8px;
-    border-radius:4px;
-    background:#e4e4e4;
-}
-
-.feel-scale i.on{
-    background:var(--accent);
+.feel-emoji{
+    font-size:24px;
+    line-height:1.2;
 }
 
 .feel-value{
+    font-size:15px;
     font-weight:600;
+    text-transform:capitalize;
+}
+
+.feel-key{
+    font-size:12px;
+    color:var(--ink-faded);
     text-transform:capitalize;
 }
 
@@ -2339,10 +2335,16 @@ const STATES = ["rr","lr","rl","bh"];
 const MOVE_STATES = new Map(MOVES.map(m=>[m.name, m]));      // name -> {name, from, to, level}
 const LEVELS = ["beginner", "intromediate"];
 // Each scale, lowest to highest
+// (a subjective feel, for choosing moves to suit the music)
 const FEEL = {
     energy:     ["low", "medium", "high"],
     distance:   ["close", "normal", "far"],
     smoothness: ["smooth", "normal", "sharp"]
+};
+const FEEL_EMOJI = {
+    energy:     { low:"🌙", medium:"🙂", high:"🔥" },
+    distance:   { close:"🫂", normal:"🤝", far:"↔️" },
+    smoothness: { smooth:"🌊", normal:"〰️", sharp:"⚡" }
 };
 // Does going from move a into move b need a hand change?
 const needsHandChange = (a, b) => MOVE_STATES.get(a).to !== MOVE_STATES.get(b).from;
@@ -4746,7 +4748,7 @@ function flashCardView(){
                               : "Not in a class combination yet");
     const followers = movePool().filter(m=>canFollow(name, m));
     facts.push(`Flows on into ${plural(followers.length, "move")} without a hand change`);
-    card.append(feelView(move), el("ul", {className:"flash-facts"}, ...facts.map(f=>el("li", {textContent:f}))));
+    card.append(el("ul", {className:"flash-facts"}, ...facts.map(f=>el("li", {textContent:f}))));
 
     card.append(notesEditor(name));     // your own notes: the details the app doesn't know
 
@@ -4898,16 +4900,13 @@ function notesEditor(name){
     return box;
 }
 
-// Energy, distance and smoothness as three small scales.
+// Energy, distance and smoothness, each with an emoji.
 function feelView(move){
-    return el("div", {className:"feel"}, ...Object.entries(FEEL).map(([key, values])=>{
-        const at = values.indexOf(move[key]);
-        return el("div", {className:"feel-row", ariaLabel:`${key}: ${move[key]}`},
-            el("span", {className:"feel-key", textContent:key[0].toUpperCase() + key.slice(1)}),
-            el("span", {className:"feel-scale", ariaHidden:"true"},
-                ...values.map((v, i)=>el("i", {className:i === at ? "on" : "", title:v}))),
-            el("span", {className:"feel-value", textContent:move[key]}));
-    }));
+    return el("div", {className:"feel"}, ...Object.keys(FEEL).map(key=>
+        el("div", {className:"feel-item"},
+            el("span", {className:"feel-emoji", ariaHidden:"true", textContent:FEEL_EMOJI[key][move[key]]}),
+            el("span", {className:"feel-value", textContent:move[key]}),
+            el("span", {className:"feel-key", textContent:key}))));
 }
 
 function showMoveDetails(name){
@@ -4932,6 +4931,7 @@ function showMoveDetails(name){
                 el("span", {className:`mp-level ${move.level}`, textContent:move.level})),
             close),
         el("div", {className:"mp-holds"}, hold(move.from, "Starts in"), el("span", {className:"arrow", textContent:"→"}), hold(move.to, "Finishes in")),
+        notesEditor(name),
         feelView(move)
     ];
 
@@ -4969,8 +4969,7 @@ function showMoveDetails(name){
         ? `Box ${card.box} of ${LAST_BOX}; ${card.due <= today() ? "due now" : `next due ${card.due === inDays(1) ? "tomorrow" : card.due}`}`
         : "Not studied yet"}));
 
-    parts.push(notesEditor(name),
-        el("a", {className:"mp-videos", href:VIDEOS_URL, target:"_blank", rel:"noopener"},
+    parts.push(el("a", {className:"mp-videos", href:VIDEOS_URL, target:"_blank", rel:"noopener"},
             "Videos", el("span", {ariaHidden:"true", textContent:"↗"})));
 
     dom.movePanel.replaceChildren(...parts);
