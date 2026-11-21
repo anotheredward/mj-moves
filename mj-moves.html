@@ -1156,6 +1156,47 @@ body.menu-open #backdrop{
     filter:brightness(1.3);
 }
 
+/* energy / distance / smoothness: three steps, the move's one filled */
+.feel{
+    display:grid;
+    gap:6px;
+    max-width:320px;
+    margin:16px auto 4px;
+    font-size:14px;
+}
+
+.feel-row{
+    display:grid;
+    grid-template-columns:92px auto 1fr;
+    align-items:center;
+    gap:10px;
+}
+
+.feel-key{
+    color:var(--ink-soft);
+}
+
+.feel-scale{
+    display:flex;
+    gap:3px;
+}
+
+.feel-scale i{
+    width:22px;
+    height:8px;
+    border-radius:4px;
+    background:#e4e4e4;
+}
+
+.feel-scale i.on{
+    background:var(--accent);
+}
+
+.feel-value{
+    font-weight:600;
+    text-transform:capitalize;
+}
+
 #caption .step[data-move]{
     cursor:pointer;
 }
@@ -2196,37 +2237,38 @@ Show intromediate moves
 
 // Every move: where the hands start and finish, and its level. The 22
 // beginner moves are the beginners block; the rest are intromediate.
-// (Objects, so more details - descriptions, counts - can be added later.)
+// How each move feels: energy, distance between partners and smoothness
+// (values in FEEL, below).
 const MOVES = [
-{ name:"Accordion",         from:"rr", to:"rr", level:"beginner" },
-{ name:"Loop Throughs",     from:"bh", to:"bh", level:"beginner" },
-{ name:"Back Pass",         from:"rr", to:"lr", level:"beginner" },
-{ name:"Manhattan",         from:"lr", to:"lr", level:"beginner" },
-{ name:"Basket",            from:"bh", to:"lr", level:"beginner" },
-{ name:"New Yorker",        from:"lr", to:"lr", level:"beginner" },
-{ name:"Block & Turn",      from:"rr", to:"rr", level:"beginner" },
-{ name:"Outside Turn",      from:"lr", to:"lr", level:"beginner" },
-{ name:"Break Through",     from:"lr", to:"rr", level:"beginner" },
-{ name:"Short First Move",  from:"lr", to:"lr", level:"beginner" },
-{ name:"Catapult",          from:"rr", to:"lr", level:"beginner" },
-{ name:"Shoulder Block",    from:"rr", to:"lr", level:"beginner" },
-{ name:"Figure Of 8",       from:"lr", to:"rr", level:"beginner" },
-{ name:"Squeezebox",        from:"bh", to:"lr", level:"beginner" },
-{ name:"Hatchback",         from:"lr", to:"lr", level:"beginner" },
-{ name:"Step Across",       from:"lr", to:"lr", level:"beginner" },
-{ name:"Hook Turn",         from:"rr", to:"lr", level:"beginner" },
-{ name:"Travelling Return", from:"lr", to:"lr", level:"beginner" },
-{ name:"Key Turn",          from:"rr", to:"lr", level:"beginner" },
-{ name:"Wurlitzer",         from:"lr", to:"lr", level:"beginner" },
-{ name:"Left Side Change",  from:"lr", to:"rr", level:"beginner" },
-{ name:"Yoyo",              from:"rr", to:"rr", level:"beginner" },
-{ name:"Aerial Yoyo",       from:"rr", to:"rr", level:"intromediate" },
-{ name:"Shoulder Wrap",     from:"rr", to:"lr", level:"intromediate" },
-{ name:"Comb",              from:"rr", to:"rr", level:"intromediate" },
-{ name:"Slide Break",       from:"bh", to:"rr", level:"intromediate" },
-{ name:"First Move",        from:"lr", to:"lr", level:"intromediate" },
-{ name:"Wrap & Throw",      from:"rl", to:"lr", level:"intromediate" },
-{ name:"Short Manhattan",   from:"lr", to:"lr", level:"intromediate" }
+{ name:"Accordion",         from:"rr", to:"rr", level:"beginner", energy:"medium", distance:"normal", smoothness:"smooth" },
+{ name:"Loop Throughs",     from:"bh", to:"bh", level:"beginner", energy:"medium", distance:"close", smoothness:"smooth" },
+{ name:"Back Pass",         from:"rr", to:"lr", level:"beginner", energy:"low", distance:"close", smoothness:"smooth" },
+{ name:"Manhattan",         from:"lr", to:"lr", level:"beginner", energy:"medium", distance:"close", smoothness:"normal" },
+{ name:"Basket",            from:"bh", to:"lr", level:"beginner", energy:"medium", distance:"close", smoothness:"normal" },
+{ name:"New Yorker",        from:"lr", to:"lr", level:"beginner", energy:"high", distance:"far", smoothness:"sharp" },
+{ name:"Block & Turn",      from:"rr", to:"rr", level:"beginner", energy:"medium", distance:"normal", smoothness:"normal" },
+{ name:"Outside Turn",      from:"lr", to:"lr", level:"beginner", energy:"high", distance:"far", smoothness:"sharp" },
+{ name:"Break Through",     from:"lr", to:"rr", level:"beginner", energy:"medium", distance:"close", smoothness:"smooth" },
+{ name:"Short First Move",  from:"lr", to:"lr", level:"beginner", energy:"medium", distance:"close", smoothness:"normal" },
+{ name:"Catapult",          from:"rr", to:"lr", level:"beginner", energy:"high", distance:"far", smoothness:"sharp" },
+{ name:"Shoulder Block",    from:"rr", to:"lr", level:"beginner", energy:"medium", distance:"close", smoothness:"normal" },
+{ name:"Figure Of 8",       from:"lr", to:"rr", level:"beginner", energy:"high", distance:"normal", smoothness:"sharp" },
+{ name:"Squeezebox",        from:"bh", to:"lr", level:"beginner", energy:"medium", distance:"normal", smoothness:"normal" },
+{ name:"Hatchback",         from:"lr", to:"lr", level:"beginner", energy:"medium", distance:"far", smoothness:"normal" },
+{ name:"Step Across",       from:"lr", to:"lr", level:"beginner", energy:"low", distance:"normal", smoothness:"smooth" },
+{ name:"Hook Turn",         from:"rr", to:"lr", level:"beginner", energy:"medium", distance:"far", smoothness:"sharp" },
+{ name:"Travelling Return", from:"lr", to:"lr", level:"beginner", energy:"medium", distance:"normal", smoothness:"normal" },
+{ name:"Key Turn",          from:"rr", to:"lr", level:"beginner", energy:"medium", distance:"normal", smoothness:"normal" },
+{ name:"Wurlitzer",         from:"lr", to:"lr", level:"beginner", energy:"medium", distance:"far", smoothness:"sharp" },
+{ name:"Left Side Change",  from:"lr", to:"rr", level:"beginner", energy:"high", distance:"far", smoothness:"normal" },
+{ name:"Yoyo",              from:"rr", to:"rr", level:"beginner", energy:"medium", distance:"normal", smoothness:"sharp" },
+{ name:"Aerial Yoyo",       from:"rr", to:"rr", level:"intromediate", energy:"high", distance:"normal", smoothness:"sharp" },
+{ name:"Shoulder Wrap",     from:"rr", to:"lr", level:"intromediate", energy:"medium", distance:"close", smoothness:"normal" },
+{ name:"Comb",              from:"rr", to:"rr", level:"intromediate", energy:"medium", distance:"close", smoothness:"sharp" },
+{ name:"Slide Break",       from:"bh", to:"rr", level:"intromediate", energy:"medium", distance:"normal", smoothness:"normal" },
+{ name:"First Move",        from:"lr", to:"lr", level:"intromediate", energy:"medium", distance:"close", smoothness:"normal" },
+{ name:"Wrap & Throw",      from:"rl", to:"lr", level:"intromediate", energy:"medium", distance:"close", smoothness:"smooth" },
+{ name:"Short Manhattan",   from:"lr", to:"lr", level:"intromediate", energy:"medium", distance:"close", smoothness:"normal" }
 ];
 
 // How to get from one move into the next when the first finishes in a
@@ -2296,6 +2338,12 @@ const SUPER_COMBO = {
 const STATES = ["rr","lr","rl","bh"];
 const MOVE_STATES = new Map(MOVES.map(m=>[m.name, m]));      // name -> {name, from, to, level}
 const LEVELS = ["beginner", "intromediate"];
+// Each scale, lowest to highest
+const FEEL = {
+    energy:     ["low", "medium", "high"],
+    distance:   ["close", "normal", "far"],
+    smoothness: ["smooth", "normal", "sharp"]
+};
 // Does going from move a into move b need a hand change?
 const needsHandChange = (a, b) => MOVE_STATES.get(a).to !== MOVE_STATES.get(b).from;
 
@@ -2353,6 +2401,9 @@ function planMoves(moves, {loops=false}={}){
 (function validateData(){
     for(const m of MOVES){
         if(!LEVELS.includes(m.level)) console.warn(`Move "${m.name}": unknown level "${m.level}"`);
+        for(const [key, values] of Object.entries(FEEL)){
+            if(!values.includes(m[key])) console.warn(`Move "${m.name}": unknown ${key} "${m[key]}"`);
+        }
     }
     for(const v of MOVE_VARIATIONS){
         const m = MOVE_STATES.get(v.move);
@@ -4695,7 +4746,7 @@ function flashCardView(){
                               : "Not in a class combination yet");
     const followers = movePool().filter(m=>canFollow(name, m));
     facts.push(`Flows on into ${plural(followers.length, "move")} without a hand change`);
-    card.append(el("ul", {className:"flash-facts"}, ...facts.map(f=>el("li", {textContent:f}))));
+    card.append(feelView(move), el("ul", {className:"flash-facts"}, ...facts.map(f=>el("li", {textContent:f}))));
 
     card.append(notesEditor(name));     // your own notes: the details the app doesn't know
 
@@ -4847,6 +4898,18 @@ function notesEditor(name){
     return box;
 }
 
+// Energy, distance and smoothness as three small scales.
+function feelView(move){
+    return el("div", {className:"feel"}, ...Object.entries(FEEL).map(([key, values])=>{
+        const at = values.indexOf(move[key]);
+        return el("div", {className:"feel-row", ariaLabel:`${key}: ${move[key]}`},
+            el("span", {className:"feel-key", textContent:key[0].toUpperCase() + key.slice(1)}),
+            el("span", {className:"feel-scale", ariaHidden:"true"},
+                ...values.map((v, i)=>el("i", {className:i === at ? "on" : "", title:v}))),
+            el("span", {className:"feel-value", textContent:move[key]}));
+    }));
+}
+
 function showMoveDetails(name){
     const move = MOVE_STATES.get(name);
     if(!move) return;
@@ -4868,7 +4931,8 @@ function showMoveDetails(name){
                 el("h2", {id:"moveTitle", textContent:name}),
                 el("span", {className:`mp-level ${move.level}`, textContent:move.level})),
             close),
-        el("div", {className:"mp-holds"}, hold(move.from, "Starts in"), el("span", {className:"arrow", textContent:"→"}), hold(move.to, "Finishes in"))
+        el("div", {className:"mp-holds"}, hold(move.from, "Starts in"), el("span", {className:"arrow", textContent:"→"}), hold(move.to, "Finishes in")),
+        feelView(move)
     ];
 
     const variations = MOVE_VARIATIONS.filter(v=>v.move === name).map(v=>v.end
