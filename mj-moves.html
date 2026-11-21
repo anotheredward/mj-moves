@@ -240,6 +240,8 @@ body.menu-open #backdrop{
 }
 
 .combo{
+    box-sizing:border-box;
+    text-decoration:none;
     display:flex;
     align-items:baseline;
     gap:10px;
@@ -392,27 +394,49 @@ const MOVES = [
 ["Short Manhattan","lr","lr"]
 ];
 
-// transitions: hand changes between moves, keyed by the move they follow.
+// Hand changes that let one move flow into the next when the first ends in
+// a different hand position from where the second starts:
+// [move, next move, what to do in between]
+const HAND_TRANSITIONS = [
+["Shoulder Block",   "Block & Turn",  "swap to R"],
+["Shoulder Block",   "Accordion",     "offer L"],
+["Basket",           "Loop Throughs", "keep both"],
+["Short First Move", "Loop Throughs", "trace R"],
+["Loop Throughs",    "Hatchback",     "drop R"],
+["Loop Throughs",    "New Yorker",    "drop R"]
+];
+
 const COMBINATIONS = [
 { id:1,  moves:["Basket","Manhattan","Step Across"] },
 { id:2,  moves:["Short First Move","Break Through","Hook Turn"] },
 { id:3,  moves:["Yoyo","Back Pass","Figure Of 8"] },
-{ id:4,  moves:["Accordion","Shoulder Block","Block & Turn"], transitions:{"Shoulder Block":"swap to R"} },
+{ id:4,  moves:["Accordion","Shoulder Block","Block & Turn"] },
 { id:5,  moves:["Manhattan","Left Side Change","Key Turn"] },
 { id:6,  moves:["Step Across","Wurlitzer","Short First Move"] },
-{ id:7,  moves:["Basket","Loop Throughs","Hatchback"], transitions:{"Basket":"keep both", "Loop Throughs":"drop R"} },
+{ id:7,  moves:["Basket","Loop Throughs","Hatchback"] },
 { id:8,  moves:["Squeezebox","Figure Of 8","Catapult"] },
-{ id:10, moves:["Shoulder Block","Accordion","Yoyo"], transitions:{"Shoulder Block":"offer L"} },
-{ id:11, moves:["Short First Move","Loop Throughs","New Yorker"], transitions:{"Short First Move":"trace R", "Loop Throughs":"drop R"} },
+{ id:10, moves:["Shoulder Block","Accordion","Yoyo"] },
+{ id:11, moves:["Short First Move","Loop Throughs","New Yorker"] },
 { id:12, moves:["Catapult","Break Through","Block & Turn"] },
 { id:13, moves:["Squeezebox","Left Side Change","Back Pass"] }
 ];
 
 const STATES = ["rr","lr","rl","bh"];
 const MOVE_STATES = new Map(MOVES.map(([name,from,to])=>[name, {from, to}]));
+const TRANSITION_NOTES = new Map(HAND_TRANSITIONS.map(([a,b,note])=>[`${a} > ${b}`, note]));
+
+// Does going from move a into move b need a hand change?
+const needsHandChange = (a, b) => MOVE_STATES.get(a).to !== MOVE_STATES.get(b).from;
+// What the hand change is called ("hand change" if it isn't in the data).
+const handTransition = (a, b) => TRANSITION_NOTES.get(`${a} > ${b}`) ?? "hand change";
+const sameMoves = (a, b) => a.length === b.length && a.every((m,i)=>m === b[i]);
 
 // Catch typos early: a misspelt move would otherwise be skipped silently.
 (function validateData(){
+    for(const [a,b] of HAND_TRANSITIONS){
+        if(!MOVE_STATES.has(a) || !MOVE_STATES.has(b)) console.warn(`Hand transition: unknown move in "${a} > ${b}"`);
+        else if(!needsHandChange(a, b)) console.warn(`Hand transition "${a} > ${b}" isn't needed: the moves already link`);
+    }
     for(const combo of COMBINATIONS){
         combo.moves.forEach((name,i)=>{
             if(!MOVE_STATES.has(name)){
@@ -420,17 +444,10 @@ const MOVE_STATES = new Map(MOVES.map(([name,from,to])=>[name, {from, to}]));
                 return;
             }
             const next = combo.moves[i+1];
-            if(next && MOVE_STATES.has(next) &&
-               MOVE_STATES.get(name).to !== MOVE_STATES.get(next).from &&
-               !combo.transitions?.[name]){
-                console.warn(`Combination ${combo.id}: ${name} → ${next} needs a hand transition note`);
+            if(next && MOVE_STATES.has(next) && needsHandChange(name, next) && !TRANSITION_NOTES.has(`${name} > ${next}`)){
+                console.warn(`Combination ${combo.id}: ${name} → ${next} needs a hand transition in HAND_TRANSITIONS`);
             }
         });
-        for(const after of Object.keys(combo.transitions || {})){
-            if(!combo.moves.includes(after)){
-                console.warn(`Combination ${combo.id}: transition after unknown move "${after}"`);
-            }
-        }
     }
 })();
 
@@ -855,7 +872,6 @@ function addTransition(from, to, note, index){
 // moves, numbered; a dashed connector bridges any hand transition.
 // Returns the steps in execution order: {edge, kind, index, line}.
 function showCombo(combo){
-    const transitions = combo.transitions || {};
     cy.edges().addClass("dim");
     cy.edges().forEach(edge=>{
         const own = edge.data("moves");
@@ -872,7 +888,7 @@ function showCombo(combo){
         const next = moveEdge(combo.moves[i+1]);
         if(next && edge.data("target") !== next.data("source")){
             const conn = addTransition(edge.data("target"), next.data("source"),
-                                       transitions[name] || "hand change", i);
+                                       handTransition(name, combo.moves[i+1]), i);
             steps.push({ edge:conn, kind:"transition", index:i });
         }
     });
@@ -1091,15 +1107,15 @@ const arrow = (text=" → ") => el("span", {className:"arrow", textContent:text}
 // "Shoulder Block → [swap to R] → Block & Turn" as chips; data-step lets
 // the pulse light up the current one.
 function sequenceNodes(combo){
-    const transitions = combo.transitions || {};
     const parts = [];
     combo.moves.forEach((name,i)=>{
         if(i) parts.push(arrow());
         const chip = el("span", {className:"step", textContent:name});
         chip.dataset.step = `move-${i}`;
         parts.push(chip);
-        if(transitions[name] && i < combo.moves.length-1){
-            const tag = el("span", {className:"note", textContent:transitions[name]});
+        const next = combo.moves[i+1];
+        if(next && needsHandChange(name, next)){
+            const tag = el("span", {className:"note", textContent:handTransition(name, next)});
             tag.dataset.step = `transition-${i}`;
             parts.push(arrow(), tag);
         }
@@ -1114,28 +1130,74 @@ function renderCaption(){
     dom.caption.replaceChildren();
     dom.caption.scrollLeft = 0;
     if(sel?.kind === "combo"){
-        dom.caption.append(el("span", {className:"combo-id", textContent:`${sel.combo.id}`}),
-                           ...sequenceNodes(sel.combo));
+        if(sel.combo.id) dom.caption.append(el("span", {className:"combo-id", textContent:`${sel.combo.id}`}));
+        dom.caption.append(...sequenceNodes(sel.combo));
     }else{
         const where = SIDEBAR.matches ? "on the left" : "from ☰";
         dom.caption.append(el("span", {className:"placeholder", textContent:`Choose a combination ${where}`}));
     }
 }
 
-const comboButtons = new Map();   // combo -> its menu button
+// ---------------------------------------------------------------------
+// The query string holds the combination being shown, e.g.
+//   ?combo=4&moves=accordion,shoulder-block,block-and-turn
+// "moves" is what's shown (any linked or hand-changed sequence); "combo"
+// is the class combination number, when it is one.
+// ---------------------------------------------------------------------
 
-function select(selection){
+const slug = name => name.toLowerCase().replace(/&/g, "and").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+const MOVE_BY_SLUG = new Map(MOVES.map(([name])=>[slug(name), name]));
+
+// The class combination with exactly these moves, if there is one.
+const classCombo = moves => COMBINATIONS.find(c=>sameMoves(c.moves, moves));
+
+function comboUrl(combo){
+    const params = [];
+    if(combo?.id) params.push(`combo=${combo.id}`);
+    if(combo) params.push(`moves=${combo.moves.map(slug).join(",")}`);
+    return params.length ? `?${params.join("&")}` : location.pathname.split("/").pop();
+}
+
+function comboFromUrl(){
+    const params = new URLSearchParams(location.search);
+    const movesParam = params.get("moves");
+    if(!movesParam){
+        const id = Number(params.get("combo"));
+        return COMBINATIONS.find(c=>c.id === id) ?? null;
+    }
+    const moves = [];
+    for(const s of movesParam.split(",")){
+        const name = MOVE_BY_SLUG.get(s.trim());
+        if(name) moves.push(name);
+        else if(s.trim()) console.warn(`Link: unknown move "${s}"`);
+    }
+    if(!moves.length) return null;
+    return classCombo(moves) ?? { id:null, moves };
+}
+
+function writeUrl(combo){
+    const url = comboUrl(combo);
+    if(location.search === (url.startsWith("?") ? url : "")) return;
+    try{ history.pushState(null, "", url); }
+    catch{ /* some browsers refuse history changes on file:// pages */ }
+}
+
+const comboLinks = new Map();   // class combination -> its menu link
+
+function select(selection, {updateUrl=true}={}){
     state.selection = selection;
     const combo = selection?.kind === "combo" ? selection.combo : null;
-    comboButtons.forEach((btn,c)=>btn.classList.toggle("active", c === combo));
+    comboLinks.forEach((link,c)=>link.classList.toggle("active", !!combo && sameMoves(c.moves, combo.moves)));
+    if(updateUrl) writeUrl(combo);
     renderCaption();
     render();
 }
 
-const selectCombo = combo => select(combo ? {kind:"combo", combo} : null);
+const selectCombo = (combo, options) => select(combo ? {kind:"combo", combo} : null, options);
 
 function stepCombo(delta){
-    const current = state.selection?.kind === "combo" ? COMBINATIONS.indexOf(state.selection.combo) : -1;
+    const sel = state.selection?.kind === "combo" ? state.selection.combo : null;
+    const current = sel ? COMBINATIONS.findIndex(c=>sameMoves(c.moves, sel.moves)) : -1;
     const n = COMBINATIONS.length;
     const next = current < 0 ? (delta > 0 ? 0 : n-1) : (current + delta + n) % n;
     selectCombo(COMBINATIONS[next]);
@@ -1167,11 +1229,14 @@ function setPreview(preview){
 
 function buildMenu(){
     for(const combo of COMBINATIONS){
-        const btn = el("button", {type:"button", className:"combo"},
+        // a real link, so "open in new tab" / "copy link" work too
+        const btn = el("a", {className:"combo", href:comboUrl(combo)},
             el("span", {className:"combo-num", textContent:`${combo.id}`}),
             el("span", {className:"combo-moves"}, ...sequenceNodes(combo)));
         btn.setAttribute("aria-label", `Combination ${combo.id}: ${combo.moves.join(", ")}`);
-        btn.addEventListener("click", ()=>{
+        btn.addEventListener("click", e=>{
+            if(e.ctrlKey || e.metaKey || e.shiftKey || e.altKey || e.button !== 0) return;
+            e.preventDefault();
             state.preview = null;
             selectCombo(combo);
             closeMenu();
@@ -1184,7 +1249,7 @@ function buildMenu(){
             if(e.pointerType === "mouse") setPreview(null);
         });
         dom.comboList.append(btn);
-        comboButtons.set(combo, btn);
+        comboLinks.set(combo, btn);
     }
 }
 
@@ -1218,7 +1283,11 @@ SIDEBAR.addEventListener("change", ()=>{
     renderCaption();
 });
 
-renderCaption();
+// Back/Forward move between combinations viewed
+window.addEventListener("popstate", ()=>selectCombo(comboFromUrl(), {updateUrl:false}));
+
+state.selection = (c=>c ? {kind:"combo", combo:c} : null)(comboFromUrl());
+select(state.selection, {updateUrl:false});
 applyLayout();
 </script>
 
