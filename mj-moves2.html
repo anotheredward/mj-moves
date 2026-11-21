@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Dance State Transition Graph (grouped edges)</title>
+<title>Dance State Transition Graph</title>
 
 <script src="https://unpkg.com/cytoscape/dist/cytoscape.min.js"></script>
 
@@ -16,8 +16,49 @@ html, body {
 
 #container{
     display:flex;
+    flex-direction:column;
     height:100vh;
     height:100dvh;
+}
+
+/* ---------- Top bar: menu button, caption, prev/next ---------- */
+
+#topbar{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    padding:8px 10px;
+    padding-top:calc(8px + env(safe-area-inset-top));
+    border-bottom:1px solid #ccc;
+    background:white;
+    flex:0 0 auto;
+}
+
+#topbar button{
+    min-width:44px;
+    min-height:44px;
+    font-size:20px;
+    border:1px solid #ccc;
+    border-radius:8px;
+    background:white;
+    cursor:pointer;
+    -webkit-tap-highlight-color:transparent;
+}
+
+#menuBtn{
+    font-size:22px;
+}
+
+#caption{
+    flex:1;
+    min-width:0;
+    font-size:15px;
+    color:#333;
+    text-align:center;
+}
+
+#caption .placeholder{
+    color:#888;
 }
 
 #cy{
@@ -27,17 +68,72 @@ html, body {
     background:#fafafa;
 }
 
-#sidebar{
-    width:320px;
-    border-left:1px solid #ccc;
-    overflow:auto;
+/* ---------- Slide-out menu of combinations ---------- */
+
+#backdrop{
+    position:fixed;
+    inset:0;
+    background:rgba(0,0,0,0.3);
+    opacity:0;
+    pointer-events:none;
+    transition:opacity 0.2s;
+    z-index:10;
+}
+
+#menu{
+    position:fixed;
+    top:0;
+    left:0;
+    bottom:0;
+    width:min(320px, 85vw);
+    background:white;
+    box-shadow:2px 0 12px rgba(0,0,0,0.2);
+    transform:translateX(-105%);
+    transition:transform 0.2s ease-out;
+    overflow-y:auto;
     padding:15px;
+    padding-top:calc(15px + env(safe-area-inset-top));
+    padding-bottom:calc(15px + env(safe-area-inset-bottom));
     box-sizing:border-box;
+    z-index:11;
+}
+
+body.menu-open #menu{
+    transform:translateX(0);
+}
+
+body.menu-open #backdrop{
+    opacity:1;
+    pointer-events:auto;
+}
+
+#menu-header{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+}
+
+#menu h2{
+    margin:0;
+    font-size:20px;
+}
+
+#closeBtn{
+    min-width:44px;
+    min-height:44px;
+    font-size:22px;
+    border:none;
+    background:none;
+    cursor:pointer;
+}
+
+#comboList{
+    margin-top:10px;
 }
 
 .combo{
-    padding:8px;
-    margin-bottom:8px;
+    padding:10px 8px;
+    margin-bottom:6px;
     border-radius:6px;
     cursor:pointer;
     border:2px solid transparent;
@@ -58,41 +154,9 @@ html, body {
     font-weight:bold;
 }
 
-.combo-short{
-    display:none;
-}
-
 .combo-moves{
     font-size:14px;
     color:#555;
-}
-
-#controls{
-    display:flex;
-    align-items:center;
-    gap:8px;
-    margin:4px 0 12px;
-}
-
-#controls button{
-    min-width:44px;
-    min-height:44px;
-    font-size:20px;
-    border:1px solid #ccc;
-    border-radius:8px;
-    background:white;
-    cursor:pointer;
-}
-
-#caption{
-    flex:1;
-    font-size:14px;
-    color:#333;
-    text-align:center;
-}
-
-#caption .placeholder{
-    color:#888;
 }
 
 .hint{
@@ -100,82 +164,8 @@ html, body {
     color:#666;
 }
 
-/* ---------- Mobile / narrow screens ---------- */
-@media (max-width:700px){
-
-    #container{
-        flex-direction:column;
-    }
-
-    #sidebar{
-        width:auto;
-        border-left:none;
-        border-top:1px solid #ccc;
-        padding:8px 10px calc(8px + env(safe-area-inset-bottom));
-        overflow:visible;
-        flex:0 0 auto;
-    }
-
-    #sidebar h2{
-        display:none;
-    }
-
-    /* Combos become a horizontally swipeable row of chips */
-    #comboList{
-        display:flex;
-        gap:8px;
-        overflow-x:auto;
-        scroll-snap-type:x proximity;
-        padding-bottom:4px;
-        -webkit-overflow-scrolling:touch;
-    }
-
-    .combo{
-        flex:0 0 auto;
-        margin:0;
-        min-width:44px;
-        min-height:44px;
-        box-sizing:border-box;
-        display:flex;
-        align-items:center;
-        justify-content:center;
-        padding:0 12px;
-        border:2px solid #ccc;
-        border-radius:22px;
-        scroll-snap-align:start;
-    }
-
-    .combo:hover{
-        background:none;
-    }
-
-    .combo.active{
-        background:#fff3e0;
-        border-color:#ff9900;
-    }
-
-    .combo-title,
-    .combo-moves{
-        display:none;
-    }
-
-    .combo-short{
-        display:block;
-        font-weight:bold;
-        font-size:16px;
-    }
-
-    #controls{
-        margin:8px 0 0;
-    }
-
-    #caption{
-        font-size:15px;
-    }
-
-    .hint{
-        display:none;
-    }
+@media (prefers-reduced-motion:reduce){
+    #menu, #backdrop{ transition:none; }
 }
 </style>
 </head>
@@ -184,28 +174,33 @@ html, body {
 
 <div id="container">
 
-<div id="cy"></div>
-
-<div id="sidebar">
-<h2>Common Combinations</h2>
-
-<div id="controls">
+<div id="topbar">
+<button id="menuBtn" aria-label="Show combinations" aria-controls="menu" aria-expanded="false">☰</button>
 <button id="prevBtn" aria-label="Previous combination">‹</button>
 <div id="caption"></div>
 <button id="nextBtn" aria-label="Next combination">›</button>
 </div>
 
+<div id="cy"></div>
+
+</div>
+
+<div id="backdrop"></div>
+
+<nav id="menu" aria-label="Common combinations">
+<div id="menu-header">
+<h2>Common Combinations</h2>
+<button id="closeBtn" aria-label="Close menu">✕</button>
+</div>
+
 <div id="comboList"></div>
 
 <p class="hint">
-Tap or click a combination to highlight its transitions (hover to preview).
-Each line is one transition; its moves are listed on it, and numbers show
-the execution order. Tap a line to see all its moves, or the empty graph to clear.
+Pick a combination to highlight its transitions; numbers show the execution
+order. Use ‹ › to step through them. Tap a line on the graph to see all of
+its moves, or tap empty space to clear.
 </p>
-
-</div>
-
-</div>
+</nav>
 
 <script>
 
@@ -283,7 +278,9 @@ groups.forEach(({from,to,moves:names},key)=>{
             fullLabel:names.join("\n"),
             edgeLabel:names.join("\n"),
             bow: hasReverse ? 140 : 0,
-            loopDirection: 0
+            loopDirection: 0,
+            mx: 0,
+            my: 0
         }
     });
 });
@@ -292,25 +289,43 @@ groups.forEach(({from,to,moves:names},key)=>{
 // rr and lr carry most of the traffic, so they go far apart on the long
 // axis of the screen, with the busy rr<->lr lists between them.
 // Each node's self-loop (and its list) points away from the middle.
+// On phones (compact) the nodes sit closer together so the graph is drawn
+// bigger and labels stay readable; only short highlighted lists are shown.
+
+const WIDE_LOOPS = { rr:-90, lr:90, bh:0, rl:180 };
+const TALL_LOOPS = { rr:0, lr:180, bh:-90, rl:90 };
 
 const LAYOUTS = {
     wide:{
         pos:  { rr:{x:-280,y:0}, lr:{x:280,y:0}, bh:{x:0,y:-280}, rl:{x:0,y:280} },
-        loop: { rr:-90, lr:90, bh:0, rl:180 }
+        loop: WIDE_LOOPS
     },
     tall:{
         pos:  { rr:{x:0,y:-280}, lr:{x:0,y:280}, bh:{x:-280,y:0}, rl:{x:280,y:0} },
-        loop: { rr:0, lr:180, bh:-90, rl:90 }
+        loop: TALL_LOOPS
+    },
+    wideCompact:{
+        pos:  { rr:{x:-210,y:0}, lr:{x:210,y:0}, bh:{x:0,y:-130}, rl:{x:0,y:130} },
+        loop: WIDE_LOOPS
+    },
+    tallCompact:{
+        pos:  { rr:{x:0,y:-210}, lr:{x:0,y:210}, bh:{x:-150,y:0}, rl:{x:150,y:0} },
+        loop: TALL_LOOPS
     }
 };
 
-const compactQuery = window.matchMedia("(max-width:700px)");
+// Phones in either orientation: narrow (portrait) or short (landscape).
+const compactQuery = window.matchMedia("(max-width:700px), (max-height:500px)");
 const isCompact = () => compactQuery.matches;
 const fitPadding = () => isCompact() ? 20 : 50;
+const labelFontSize = () => isCompact() ? 15 : 11;
+
+let layout = LAYOUTS.wide;
 
 function currentLayout(){
     const cyEl = document.getElementById("cy");
-    return cyEl.clientHeight > cyEl.clientWidth ? LAYOUTS.tall : LAYOUTS.wide;
+    const shape = cyEl.clientHeight > cyEl.clientWidth ? "tall" : "wide";
+    return LAYOUTS[isCompact() ? shape + "Compact" : shape];
 }
 
 const cy = cytoscape({
@@ -342,8 +357,8 @@ style:{
 'label':'data(edgeLabel)',
 'curve-style':'bezier',
 'text-wrap':'wrap',
-'text-max-width':'160px',
-'text-justification':'left',
+'text-max-width':'180px',
+'text-justification':'center',
 'line-height':1.3,
 'source-endpoint':'outside-to-node',
 'target-endpoint':'outside-to-node',
@@ -379,14 +394,17 @@ selector:"edge:loop",
 style:{
 'loop-direction':'data(loopDirection)',
 'loop-sweep':'50deg',
-'control-point-step-size':110
+'control-point-step-size':110,
+// push the list off the loop so the loop itself stays visible
+'text-margin-x':'data(mx)',
+'text-margin-y':'data(my)'
 }
 },
 
 {
 selector:"edge.compact",
 style:{
-'font-size':13
+'font-size':15
 }
 },
 
@@ -423,17 +441,30 @@ layout:{ name:"preset" }
 
 });
 
-function applyLayout(){
-    const layout = currentLayout();
-    cy.edges(":loop").forEach(edge=>{
-        edge.data("loopDirection", layout.loop[edge.data("source")]);
-    });
-    cy.nodes().forEach(node=>node.position(layout.pos[node.id()]));
-    cy.resize();
-    cy.fit(undefined, fitPadding());
-}
+// ---------- Labels ----------
 
-// ---------- Highlighting ----------
+const measureCtx = document.createElement("canvas").getContext("2d");
+
+// Shift each loop's label outward (in the loop's direction) by half its
+// size, so the label sits beyond the loop instead of covering it.
+function offsetLoopLabels(){
+    const size = labelFontSize();
+    cy.edges(":loop").forEach(edge=>{
+        if(edge.hasClass("hide-label")){
+            edge.data({mx:0, my:0});
+            return;
+        }
+        const lines = edge.data("edgeLabel").split("\n");
+        measureCtx.font = `${edge.hasClass("highlight") ? "bold " : ""}${size}px sans-serif`;
+        const w = Math.max(...lines.map(l=>measureCtx.measureText(l).width)) + 10;
+        const h = lines.length * size * 1.3 + 10;
+        const rad = edge.data("loopDirection") * Math.PI / 180;
+        edge.data({
+            mx: Math.sin(rad) * (w/2 + 4),
+            my: -Math.cos(rad) * (h/2 + 4)
+        });
+    });
+}
 
 // On small screens, only show labels for highlighted edges to avoid clutter.
 function updateLabels(){
@@ -442,7 +473,21 @@ function updateLabels(){
         edge.toggleClass("compact", compact);
         edge.toggleClass("hide-label", compact && !edge.hasClass("highlight"));
     });
+    offsetLoopLabels();
 }
+
+function applyLayout(){
+    layout = currentLayout();
+    cy.edges(":loop").forEach(edge=>{
+        edge.data("loopDirection", layout.loop[edge.data("source")]);
+    });
+    cy.nodes().forEach(node=>node.position(layout.pos[node.id()]));
+    cy.resize();
+    updateLabels();   // before fit, so hidden labels don't take up room
+    cy.fit(undefined, fitPadding());
+}
+
+// ---------- Highlighting ----------
 
 function clearHighlight(){
     cy.elements().removeClass("dim highlight");
@@ -450,22 +495,20 @@ function clearHighlight(){
     updateLabels();
 }
 
-function dimAllEdges(){
+function dimAll(){
     clearHighlight();
     cy.edges().addClass("dim");
-    cy.nodes().addClass("dim");
 }
 
 function lightUp(edge, label){
     edge.removeClass("dim").addClass("highlight");
-    edge.connectedNodes().removeClass("dim");
     edge.data("edgeLabel", label);
 }
 
 // Highlight a combination: each edge it uses shows only the combo's moves
 // on that edge, numbered by execution order.
 function highlight(comboMoves){
-    dimAllEdges();
+    dimAll();
     cy.edges().forEach(edge=>{
         const own = edge.data("moves");
         const steps = comboMoves
@@ -475,17 +518,42 @@ function highlight(comboMoves){
             lightUp(edge, steps.map(s=>`${s.step}. ${s.name}`).join("\n"));
         }
     });
-    cy.nodes().removeClass("dim");
     updateLabels();
 }
 
 // Highlight a single edge with its full move list (used when tapping a line).
 function highlightEdge(edge){
-    dimAllEdges();
-    cy.nodes().removeClass("dim");
+    dimAll();
     lightUp(edge, edge.data("fullLabel"));
     updateLabels();
 }
+
+// ---------- Menu ----------
+
+const menuBtn=document.getElementById("menuBtn");
+
+function openMenu(){
+    document.body.classList.add("menu-open");
+    menuBtn.setAttribute("aria-expanded","true");
+    const target = document.querySelector(".combo.active") || document.querySelector(".combo");
+    target.focus({preventScroll:true});
+    target.scrollIntoView({block:"nearest"});
+}
+
+function closeMenu(){
+    if(!document.body.classList.contains("menu-open")) return;
+    document.body.classList.remove("menu-open");
+    menuBtn.setAttribute("aria-expanded","false");
+    menuBtn.focus({preventScroll:true});
+    showSelected();   // undo any hover preview
+}
+
+menuBtn.addEventListener("click",openMenu);
+document.getElementById("closeBtn").addEventListener("click",closeMenu);
+document.getElementById("backdrop").addEventListener("click",closeMenu);
+document.addEventListener("keydown",e=>{
+    if(e.key==="Escape") closeMenu();
+});
 
 // ---------- Selection state ----------
 
@@ -502,15 +570,11 @@ function showSelected(){
 }
 
 function setCaption(text, placeholder){
-    if(placeholder){
-        caption.innerHTML="";
-        const span=document.createElement("span");
-        span.className="placeholder";
-        span.textContent=text;
-        caption.appendChild(span);
-    }else{
-        caption.textContent=text;
-    }
+    caption.innerHTML="";
+    const span=document.createElement("span");
+    if(placeholder) span.className="placeholder";
+    span.textContent=text;
+    caption.appendChild(span);
 }
 
 function select(index){
@@ -520,11 +584,10 @@ function select(index){
     comboDivs.forEach((div,i)=>div.classList.toggle("active", i===selected));
 
     if(selected<0){
-        setCaption("Select a combination", true);
+        setCaption("Choose a combination from ☰", true);
     }else{
         const [id,moves]=combinations[selected];
         setCaption(`${id}: ${moves.join(" → ")}`);
-        comboDivs[selected].scrollIntoView({block:"nearest",inline:"nearest",behavior:"smooth"});
     }
 
     showSelected();
@@ -548,16 +611,18 @@ combinations.forEach(([id,moves],i)=>{
     div.innerHTML=`
 <div class="combo-title">Combination ${id}</div>
 <div class="combo-moves">${moves.join(" → ")}</div>
-<div class="combo-short">${id}</div>
 `;
 
-    // Tap/click toggles the selection.
-    div.addEventListener("click",()=>select(selected===i ? -1 : i));
+    // Picking a combination selects it and hides the menu.
+    div.addEventListener("click",()=>{
+        select(i);
+        closeMenu();
+    });
     div.addEventListener("keydown",e=>{
         if(e.key==="Enter"||e.key===" "){ e.preventDefault(); div.click(); }
     });
 
-    // Hover preview for mouse users only; restores the selection on leave.
+    // Hover preview for mouse users only (visible beside the menu on desktop).
     div.addEventListener("pointerenter",e=>{
         if(e.pointerType==="mouse") highlight(moves);
     });
@@ -590,18 +655,15 @@ cy.on("tap","edge",e=>{
 let resizeTimer;
 function refit(){
     clearTimeout(resizeTimer);
-    resizeTimer=setTimeout(()=>{
-        applyLayout();
-        updateLabels();
-    },150);
+    resizeTimer=setTimeout(applyLayout,150);
 }
 
 window.addEventListener("resize",refit);
 window.addEventListener("orientationchange",refit);
 compactQuery.addEventListener("change",refit);
 
-applyLayout();
 select(-1);
+applyLayout();
 
 </script>
 
