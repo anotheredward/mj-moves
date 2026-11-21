@@ -433,6 +433,489 @@ body.menu-open #backdrop{
     display:none;
 }
 
+/* ---------- Statistics: a full-page overlay ---------- */
+.stats-open{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:8px;
+    width:100%;
+    margin:12px 0 4px;
+}
+
+#statsPage{
+    --s-blue:#2a78d6;           /* series 1 (beginner, moves that link) */
+    --s-orange:#eb6834;         /* series 2 (intromediate, hand changes) */
+    --s-aqua:#1baf7a;           /* series 3 (alternative endings) */
+    --s-track:#ececec;
+    position:fixed;
+    inset:0;
+    z-index:30;
+    overflow-y:auto;
+    background:var(--canvas);
+    overscroll-behavior:contain;
+}
+
+#statsPage[hidden]{
+    display:none;
+}
+
+#statsHeader{
+    position:sticky;
+    top:0;
+    z-index:1;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding:8px 10px 8px 20px;
+    padding-top:calc(8px + env(safe-area-inset-top));
+    background:white;
+    border-bottom:1px solid var(--rule);
+}
+
+#statsHeader h2{
+    margin:0;
+    font-size:22px;
+}
+
+#statsClose{
+    min-width:44px;
+    min-height:44px;
+    font-size:22px;
+    border:none;
+    border-radius:8px;
+    background:none;
+    color:var(--ink);
+    cursor:pointer;
+}
+
+#statsClose:hover{
+    background:#f0f0f0;
+}
+
+#statsBody{
+    display:grid;
+    grid-template-columns:repeat(auto-fit, minmax(min(100%, 440px), 1fr));
+    gap:16px;
+    max-width:1240px;
+    margin:0 auto;
+    padding:16px;
+    padding-bottom:calc(24px + env(safe-area-inset-bottom));
+    box-sizing:border-box;
+}
+
+.stats-card{
+    min-width:0;
+    padding:18px 20px 20px;
+    border:1px solid var(--rule);
+    border-radius:12px;
+    background:white;
+}
+
+.stats-stack{
+    display:grid;
+    gap:16px;
+    align-content:start;
+    min-width:0;
+}
+
+.stats-card.wide{
+    grid-column:1 / -1;
+}
+
+.stats-card h3{
+    margin:0 0 4px;
+    font-size:17px;
+}
+
+.stats-card .sub{
+    margin:4px 0 14px;
+    font-size:14px;
+    color:var(--ink-soft);
+}
+
+.stats-card .stat-note{
+    margin:12px 0 0;
+    font-size:14px;
+    line-height:1.45;
+    color:var(--ink-soft);
+}
+
+.stats-card .stat-note b{
+    color:var(--ink);
+    font-weight:600;
+}
+
+/* headline numbers */
+.stat-tiles{
+    display:grid;
+    grid-template-columns:repeat(auto-fit, minmax(min(100%, 200px), 1fr));
+    gap:12px 24px;
+}
+
+.stat-tile .label{
+    font-size:14px;
+    color:var(--ink-soft);
+}
+
+.stat-tile .value{
+    margin:2px 0;
+    font-size:34px;
+    font-weight:600;
+    line-height:1.1;
+}
+
+.stat-tile .value small{
+    font-size:18px;
+    font-weight:500;
+    color:var(--ink-soft);
+}
+
+.stat-tile .detail{
+    font-size:13px;
+    color:var(--ink-faded);
+}
+
+.meter{
+    display:flex;
+    gap:2px;
+    height:8px;
+    margin:6px 0;
+}
+
+.meter span{
+    border-radius:4px;
+    background:var(--s-blue);
+}
+
+.meter span.rest{
+    background:#cde2fb;
+}
+
+/* legend */
+.legend{
+    display:flex;
+    flex-wrap:wrap;
+    gap:4px 16px;
+    margin:0 0 12px;
+    font-size:13px;
+    color:var(--ink-soft);
+}
+
+.legend span{
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+}
+
+.legend i{
+    width:12px;
+    height:12px;
+    border-radius:3px;
+}
+
+/* horizontal bars: name | bar | value */
+.hbars{
+    display:grid;
+    grid-template-columns:max-content 1fr;
+    gap:4px 10px;
+    align-items:center;
+    font-size:14px;
+}
+
+.hbars .name{
+    text-align:right;
+    color:var(--ink);
+    white-space:nowrap;
+}
+
+.hbars .name.zero{
+    color:var(--ink-faded);
+}
+
+.hbar-row{
+    display:flex;
+    align-items:center;
+    gap:6px;
+    min-height:22px;
+    border-radius:4px;
+}
+
+.hbar{
+    height:16px;
+    border-radius:0 4px 4px 0;
+}
+
+.hbar-row .val{
+    font-size:13px;
+    color:var(--ink-soft);
+    font-variant-numeric:tabular-nums;
+}
+
+[data-tip]{
+    cursor:default;
+    outline-offset:2px;
+}
+
+[data-tip]:hover .hbar,
+[data-tip]:focus-visible .hbar,
+.col[data-tip]:hover .colbar,
+.col[data-tip]:focus-visible .colbar{
+    filter:brightness(1.15);
+}
+
+/* hand position matrix */
+.matrix{
+    display:grid;
+    grid-template-columns:auto repeat(4, minmax(44px, 72px));
+    gap:3px;
+    justify-content:start;
+    align-items:center;
+    font-size:12px;
+    color:var(--ink-soft);
+}
+
+.matrix .head{
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:2px;
+    text-align:center;
+}
+
+.matrix .head.row{
+    flex-direction:row;
+    justify-content:flex-end;
+    gap:6px;
+    padding-right:4px;
+}
+
+.matrix .head img{
+    width:36px;
+    height:36px;
+}
+
+.matrix .axis{
+    font-size:12px;
+    line-height:1.25;
+    color:var(--ink-faded);
+}
+
+.cell{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    aspect-ratio:1;
+    border-radius:6px;
+    font-size:17px;
+    font-weight:600;
+    background:#f3f3f3;
+    color:var(--ink-faded);
+}
+
+.cell:hover,
+.cell:focus-visible{
+    outline:2px solid var(--ink);
+}
+
+/* segmented bar (one whole in parts) */
+.segbar{
+    display:flex;
+    gap:2px;
+    height:28px;
+}
+
+.segbar span{
+    display:flex;
+    align-items:center;
+    padding:0 8px;
+    border-radius:4px;
+    font-size:13px;
+    font-weight:600;
+    color:white;
+    white-space:nowrap;
+    overflow:visible;
+}
+
+.chips{
+    display:flex;
+    flex-wrap:wrap;
+    gap:6px;
+    margin-top:8px;
+}
+
+.chip{
+    padding:3px 10px;
+    border:1px dashed var(--accent);
+    border-radius:999px;
+    font-size:13px;
+    color:var(--accent-text);
+    background:var(--accent-soft);
+}
+
+/* combination shapes: the hand positions each combination passes through */
+.shapes{
+    display:grid;
+    grid-template-columns:max-content 1fr;
+    gap:6px 10px;
+    align-items:center;
+    margin-top:14px;
+}
+
+.shapes .num{
+    font-weight:bold;
+    text-align:right;
+    font-size:14px;
+}
+
+.shape{
+    display:flex;
+    flex-wrap:wrap;
+    align-items:center;
+    row-gap:4px;
+}
+
+.shape img{
+    width:30px;
+    height:30px;
+}
+
+/* each step is a 2px line, in a taller box so it's easy to hover */
+.shape .hop{
+    position:relative;
+    width:20px;
+    height:30px;
+    margin:0 1px;
+}
+
+.shape .hop::before{
+    content:"";
+    position:absolute;
+    left:0;
+    right:0;
+    top:14px;
+    height:2px;
+    background:var(--line);
+}
+
+.shape .hop.change::before{
+    height:0;
+    border-top:2px dashed var(--s-orange);
+    background:none;
+}
+
+.shape .hop.ending::before{
+    background:var(--s-aqua);
+}
+
+/* hero figure */
+.hero{
+    font-size:56px;
+    font-weight:600;
+    line-height:1;
+    margin:6px 0 4px;
+}
+
+.stats-table{
+    width:100%;
+    margin-top:14px;
+    border-collapse:collapse;
+    font-size:14px;
+}
+
+.stats-table th,
+.stats-table td{
+    padding:7px 8px;
+    border-bottom:1px solid var(--rule);
+    text-align:right;
+    font-variant-numeric:tabular-nums;
+}
+
+.stats-table th:first-child,
+.stats-table td:first-child{
+    text-align:left;
+}
+
+.stats-table th{
+    font-weight:600;
+    color:var(--ink-soft);
+    font-size:13px;
+}
+
+/* columns: practice per combination */
+.cols{
+    display:flex;
+    align-items:flex-end;
+    gap:4px;
+    height:160px;
+    padding-top:20px;
+    border-bottom:1px solid var(--rule);
+}
+
+.col{
+    flex:1;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:flex-end;
+    height:100%;
+    min-width:0;
+}
+
+.col .v{
+    font-size:12px;
+    color:var(--ink-soft);
+    margin-bottom:3px;
+}
+
+.colbar{
+    width:min(24px, 100%);
+    border-radius:4px 4px 0 0;
+    background:var(--s-blue);
+}
+
+.col-labels{
+    display:flex;
+    gap:4px;
+    margin-top:4px;
+    font-size:12px;
+    color:var(--ink-soft);
+}
+
+.col-labels span{
+    flex:1;
+    min-width:0;
+    text-align:center;
+}
+
+.empty-note{
+    padding:16px;
+    border-radius:8px;
+    background:var(--canvas);
+    color:var(--ink-soft);
+    font-size:14px;
+}
+
+#statsTip{
+    position:fixed;
+    z-index:2;
+    max-width:260px;
+    padding:8px 10px;
+    border-radius:8px;
+    background:#2b2b2b;
+    color:#ddd;
+    font-size:13px;
+    line-height:1.35;
+    box-shadow:0 4px 16px rgba(0,0,0,0.25);
+    pointer-events:none;
+}
+
+#statsTip strong{
+    display:block;
+    color:white;
+    font-size:15px;
+}
+
 /* number column used for a label in the Favourites list */
 .combo-num.tag{
     font-size:11px;
@@ -752,6 +1235,15 @@ body.menu-open #backdrop{
 
 <div id="toast" role="status" aria-live="polite"></div>
 
+<div id="statsPage" role="dialog" aria-modal="true" aria-labelledby="statsTitle" hidden>
+<header id="statsHeader">
+<h2 id="statsTitle">Statistics</h2>
+<button type="button" id="statsClose" aria-label="Close statistics">✕</button>
+</header>
+<div id="statsBody"></div>
+<div id="statsTip" role="tooltip" hidden></div>
+</div>
+
 <nav id="menu" aria-label="Menu">
 <div id="menuTop"><button id="closeBtn" aria-label="Close menu">✕</button></div>
 
@@ -793,6 +1285,11 @@ body.menu-open #backdrop{
 <summary><h2>Favourites</h2></summary>
 <div id="favList"></div>
 </details>
+
+<button type="button" id="statsBtn" class="secondary stats-open">
+<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 20h16"/><path d="M7 16v-5"/><path d="M12 16V5"/><path d="M17 16v-8"/></svg>
+Statistics
+</button>
 
 <p class="hint">Tap on an empty space to clear the combination.</p>
 
@@ -1024,7 +1521,7 @@ const fitPadding = () => isCompact() ? 20 : 50;
 
 const dom = Object.fromEntries(
     ["container","graph","cy","caption","stepHighlight","menu","menuBtn","closeBtn","classSection","showIntro","superSlot","toast","randomSection","lengthGroup","loopCombo","generateBtn","favBtn","shareBtn","favList","shuffleBtn","replaceBtn","avoidChanges",
-     "backdrop","comboList","prevBtn","nextBtn"].map(id=>[id, document.getElementById(id)])
+     "backdrop","comboList","statsBtn","statsPage","statsBody","statsClose","statsTip","prevBtn","nextBtn"].map(id=>[id, document.getElementById(id)])
 );
 
 // selection: the combination the user picked ({kind:"combo", combo} | null)
@@ -2095,6 +2592,336 @@ function buildMenu(){
         dom.comboList.append(el("div", {className:"combo-row"}, btn, statControls(combo)));
     }
 }
+
+// =====================================================================
+// Statistics: a full-page overlay of facts about the moves, the class
+// combinations and your own practice. Built afresh each time it opens.
+// =====================================================================
+
+const POSITION_NAMES = { lr:"L to R", rr:"R to R", rl:"R to L", bh:"Both hands" };
+const LEVEL_COLOR = { beginner:"var(--s-blue)", intromediate:"var(--s-orange)" };
+const fmt = n => n.toLocaleString("en-NZ");
+const listText = items => items.length < 2 ? items.join("")
+    : `${items.slice(0,-1).join(", ")} and ${items.at(-1)}`;
+// light blue -> dark blue, for counts
+const BLUE_STEPS = ["#cde2fb","#9ec5f4","#6da7ec","#3987e5","#256abf","#184f95"];
+
+// Hover/focus readout: the value first, then what it is.
+function tip(node, value, label){
+    node.dataset.tip = value;
+    if(label) node.dataset.tipLabel = label;
+    node.tabIndex = 0;
+    node.setAttribute("aria-label", label ? `${label}: ${value}` : value);
+    return node;
+}
+
+function card(title, sub, ...content){
+    return el("section", {className:"stats-card"},
+        el("h3", {textContent:title}),
+        ...(sub ? [el("p", {className:"sub", textContent:sub})] : []),
+        ...content);
+}
+
+const note = (...parts)=>el("p", {className:"stat-note"}, ...parts);
+const bold = text=>el("b", {textContent:text});
+const posIcon = (id, size)=>el("img", {src:nodeIcon(id), alt:POSITION_NAMES[id], width:size, height:size});
+
+function legend(items){
+    return el("div", {className:"legend"}, ...items.map(([color, text])=>
+        el("span", {}, el("i", {style:`background:${color}`}), text)));
+}
+
+// Every way of dancing `length` different moves in a row without a hand
+// change, counted by trying them all.
+function countFlowing(moves, length){
+    const startingAt = Map.groupBy(moves, m=>m.from);
+    const used = new Set();
+    const walk = (move, left)=>{
+        if(left === 0) return 1;
+        used.add(move);
+        let n = 0;
+        for(const next of startingAt.get(move.to) || []) if(!used.has(next)) n += walk(next, left-1);
+        used.delete(move);
+        return n;
+    };
+    return moves.reduce((n, m)=>n + walk(m, length-1), 0);
+}
+
+function headlineCard(){
+    const beginner = MOVES.filter(m=>m.level === "beginner");
+    const inClass = new Set(COMBINATIONS.flatMap(c=>c.moves));
+    const taught = beginner.filter(m=>inClass.has(m.name));
+    const missing = beginner.filter(m=>!inClass.has(m.name)).map(m=>m.name);
+    const tile = (label, value, detail, extra)=>el("div", {className:"stat-tile"},
+        el("div", {className:"label", textContent:label}),
+        el("div", {className:"value"}, ...value),
+        ...(extra ? [extra] : []),
+        el("div", {className:"detail", textContent:detail}));
+    const moveSlots = COMBINATIONS.reduce((n,c)=>n + c.moves.length, 0);
+    const section = card("At a glance", null, el("div", {className:"stat-tiles"},
+        tile("Moves", [fmt(MOVES.length)],
+             `${beginner.length} beginner · ${MOVES.length - beginner.length} intromediate`),
+        tile("Class combinations", [fmt(COMBINATIONS.length)],
+             `${moveSlots} moves in all, plus the ${SUPER_COMBO.moves.length}-move Super Combo`),
+        tile("Beginner moves in class combinations", [fmt(taught.length), el("small", {textContent:` of ${beginner.length}`})],
+             missing.length ? `Not in any yet: ${listText(missing)}` : "Every one of them",
+             el("div", {className:"meter", role:"img", ariaLabel:`${taught.length} of ${beginner.length}`},
+                 el("span", {style:`flex:${taught.length}`}),
+                 ...(missing.length ? [el("span", {className:"rest", style:`flex:${missing.length}`})] : []))),
+        tile("Known hand changes", [fmt(HAND_SWAPS.length + MOVE_VARIATIONS.length)],
+             `${HAND_SWAPS.length} general, ${MOVE_VARIATIONS.length} for particular moves`)));
+    section.classList.add("wide");
+    return section;
+}
+
+function moveUsageCard(){
+    const uses = new Map(MOVES.map(m=>[m.name, {count:0, first:0, last:0, combos:[]}]));
+    for(const c of COMBINATIONS){
+        c.moves.forEach((name, i)=>{
+            const u = uses.get(name);
+            u.count++;
+            u.combos.push(c.id);
+            if(i === 0) u.first++;
+            if(i === c.moves.length-1) u.last++;
+        });
+    }
+    const max = Math.max(...[...uses.values()].map(u=>u.count));
+    const rows = MOVES.toSorted((a,b)=>uses.get(b.name).count - uses.get(a.name).count
+                                     || LEVELS.indexOf(a.level) - LEVELS.indexOf(b.level)
+                                     || a.name.localeCompare(b.name));
+    const grid = el("div", {className:"hbars"});
+    for(const m of rows){
+        const u = uses.get(m.name);
+        const where = u.count ? `In ${listText([...new Set(u.combos)].map(String))}`
+            + (u.first ? ` · opens ${timesText(u.first)}` : "")
+            + (u.last ? ` · finishes ${timesText(u.last)}` : "")
+            : "Not in a class combination yet";
+        grid.append(el("span", {className:`name${u.count ? "" : " zero"}`, textContent:m.name}),
+            tip(el("div", {className:"hbar-row"},
+                ...(u.count ? [el("div", {className:"hbar",
+                    style:`width:${u.count/max*85}%;background:${LEVEL_COLOR[m.level]}`})] : []),
+                el("span", {className:"val", textContent:u.count})),
+                plural(u.count, "combination"), `${m.name} (${m.level}). ${where}`));
+    }
+    const top = rows.filter(m=>uses.get(m.name).count === max).map(m=>m.name);
+    const unused = rows.filter(m=>!uses.get(m.name).count);
+    return card("Moves in the class combinations", "How many of the class combinations each move is in",
+        legend([[LEVEL_COLOR.beginner, "Beginner"], [LEVEL_COLOR.intromediate, "Intromediate"]]),
+        grid,
+        note(bold(listText(top)), ` ${top.length > 1 ? "are" : "is"} the most used, in ${plural(max, "combination")}. `,
+             `${plural(unused.length, "move")} — ${unused.filter(m=>m.level === "intromediate").length} of them intromediate — ` +
+             "haven't been in a class combination yet."));
+}
+
+function positionsCard(){
+    const counts = {};
+    for(const m of MOVES) (counts[m.from + m.to] ??= []).push(m.name);
+    const max = Math.max(...Object.values(counts).map(c=>c.length));
+    const grid = el("div", {className:"matrix"},
+        el("span", {className:"axis", innerHTML:"from ↓<br>to →"}),
+        ...STATES.map(id=>el("div", {className:"head"}, posIcon(id, 36), el("span", {textContent:POSITION_NAMES[id]}))));
+    for(const from of STATES){
+        grid.append(el("div", {className:"head row"}, el("span", {textContent:POSITION_NAMES[from]}), posIcon(from, 36)));
+        for(const to of STATES){
+            const names = counts[from + to] || [];
+            const cell = el("div", {className:"cell", textContent:names.length || "·"});
+            if(names.length){
+                const step = Math.min(BLUE_STEPS.length-1, Math.round(names.length/max*(BLUE_STEPS.length-1)));
+                cell.style.background = BLUE_STEPS[step];
+                cell.style.color = step >= 3 ? "white" : "var(--ink)";
+            }
+            grid.append(tip(cell, plural(names.length, "move"),
+                `${POSITION_NAMES[from]} → ${POSITION_NAMES[to]}${names.length ? ": " + names.join(", ") : ""}`));
+        }
+    }
+    const starts = id=>MOVES.filter(m=>m.from === id).length;
+    const ends = id=>MOVES.filter(m=>m.to === id).length;
+    const hub = STATES.toSorted((a,b)=>starts(b)+ends(b) - starts(a)-ends(a))[0];
+    const same = MOVES.filter(m=>m.from === m.to).length;
+    const unreachable = STATES.filter(id=>!ends(id) && !MOVE_VARIATIONS.some(v=>v.end === id));
+    return card("Where moves take your hands", "Each move counted by the hand position it starts in (rows) and finishes in (columns)",
+        grid,
+        note(bold(POSITION_NAMES[hub]), ` is the home position: ${starts(hub)} moves start there and ${ends(hub)} finish there. `,
+             `${plural(same, "move")} finish where ${same === 1 ? "it" : "they"} started (the diagonal). `,
+             ...(unreachable.length ? [`No move finishes in ${listText(unreachable.map(id=>POSITION_NAMES[id]))}, `
+                + "so you only get there with a hand change."] : [])));
+}
+
+function flowCard(){
+    const kinds = { link:0, ending:0, change:0 };
+    const changes = new Map();
+    const shapes = el("div", {className:"shapes"});
+    for(const c of COMBINATIONS){
+        c.moves.slice(1).forEach((b, i)=>{
+            const br = bridge(c.moves[i], b);
+            kinds[br.kind]++;
+            if(br.kind === "change"){
+                const list = changes.get(br.note) || [];
+                changes.set(br.note, [...list, c.id]);
+            }
+        });
+        // the hand positions the combination passes through
+        const shape = el("div", {className:"shape"});
+        const plan = planMoves(c.moves);
+        shape.append(posIcon(plan[0].from, 30));
+        for(const step of plan){
+            const isMove = step.kind === "move";
+            const kind = isMove ? (step.variant ? "ending" : "") : "change";
+            shape.append(tip(el("span", {className:`hop ${kind}`}),
+                    isMove ? step.name : step.note,
+                    isMove ? (step.variant ? `move, ${step.variant}` : "move") : "hand change"),
+                posIcon(step.to, 30));
+        }
+        shapes.append(el("span", {className:"num", textContent:c.id}), shape);
+    }
+    const total = kinds.link + kinds.ending + kinds.change;
+    const parts = [
+        ["link", "Flows straight on", "var(--s-blue)"],
+        ["ending", "Alternative ending", "var(--s-aqua)"],
+        ["change", "Hand change", "var(--s-orange)"]
+    ].filter(([k])=>kinds[k]);
+    const bar = el("div", {className:"segbar", role:"img",
+        ariaLabel:parts.map(([k, label])=>`${label}: ${kinds[k]}`).join(", ")},
+        ...parts.map(([k, label, color])=>{
+            const seg = el("span", {style:`flex:${kinds[k]};background:${color}`});
+            if(kinds[k]/total > 0.12) seg.textContent = `${Math.round(kinds[k]/total*100)}%`;
+            return tip(seg, `${kinds[k]} of ${total}`, label);
+        }));
+    const smooth = COMBINATIONS.filter(c=>c.moves.slice(1).every((b,i)=>bridge(c.moves[i], b).kind !== "change"));
+    return card("How the class combinations flow", `The ${total} places where one move leads into the next`,
+        legend(parts.map(([k, label, color])=>[color, `${label} (${kinds[k]})`])),
+        bar,
+        note(`Hand changes used: `),
+        el("div", {className:"chips"}, ...[...changes].map(([text, ids])=>
+            tip(el("span", {className:"chip", textContent:ids.length > 1 ? `${text} ×${ids.length}` : text}),
+                text, `In combination${ids.length > 1 ? "s" : ""} ${listText(ids.map(String))}`))),
+        note(bold(`${smooth.length} of ${COMBINATIONS.length}`), " combinations flow from start to finish without a hand change. ",
+             "Below: the hand positions each combination passes through. A dashed line is a hand change."),
+        shapes);
+}
+
+function possibilitiesCard(){
+    const beginner = MOVES.filter(m=>m.level === "beginner");
+    const lengths = [2, 3, 4, 5];
+    const rows = lengths.map(n=>[n, countFlowing(beginner, n), countFlowing(MOVES, n)]);
+    const three = rows.find(r=>r[0] === 3)[2];
+    const years = Math.round(three / 52);
+    const section = card("Combinations waiting to be found", null,
+        el("div", {className:"hero", textContent:fmt(three)}),
+        el("p", {className:"sub", textContent:"different 3-move combinations flow without a hand change (no move used twice)"}),
+        note(`Trying a new one every week would take about `, bold(plural(years, "year")),
+             `. With only the ${beginner.length} beginner moves there are ${fmt(rows[1][1])}.`),
+        el("table", {className:"stats-table"},
+            el("thead", {}, el("tr", {},
+                el("th", {textContent:"Moves in a row"}),
+                el("th", {textContent:"Beginner moves"}),
+                el("th", {textContent:"All moves"}))),
+            el("tbody", {}, ...rows.map(([n, b, all])=>el("tr", {},
+                el("td", {textContent:n}), el("td", {textContent:fmt(b)}), el("td", {textContent:fmt(all)}))))),
+        note("Each extra move multiplies the choice by about ten."));
+    return section;
+}
+
+function practiceCard(){
+    const entries = Object.entries(stats).map(([key, value])=>{
+        const moves = key.split(",").map(s=>MOVE_BY_SLUG.get(s)).filter(Boolean);
+        return { moves, ...value };
+    }).filter(e=>e.moves.length);
+    const practiced = entries.filter(e=>e.done > 0);
+    const totalDone = practiced.reduce((n,e)=>n + e.done, 0);
+    const favs = entries.filter(e=>e.fav).length;
+    const section = card("Your practice", "From the ✓ and ☆ on this device");
+    if(!totalDone && !favs){
+        section.append(el("p", {className:"empty-note",
+            textContent:"Nothing yet. Tap ✓ beside a combination each time you practise it, and ☆ to keep it in Favourites; your progress will show up here."}));
+        return section;
+    }
+    const tile = (label, value)=>el("div", {className:"stat-tile"},
+        el("div", {className:"label", textContent:label}), el("div", {className:"value", textContent:fmt(value)}));
+    section.append(el("div", {className:"stat-tiles"},
+        tile("Times practiced", totalDone),
+        tile("Combinations practiced", practiced.length),
+        tile("Favourites", favs)));
+
+    // practice per class combination (and the Super Combo)
+    const menuCombos = [...COMBINATIONS, SUPER_COMBO];
+    const doneOf = c=>statOf(c).done;
+    const max = Math.max(1, ...menuCombos.map(doneOf));
+    const cols = el("div", {className:"cols"});
+    const labels = el("div", {className:"col-labels"});
+    for(const c of menuCombos){
+        const n = doneOf(c);
+        cols.append(tip(el("div", {className:"col"},
+                el("span", {className:"v", textContent:n || ""}),
+                el("div", {className:"colbar", style:`height:${n/max*100}%`})),
+            n ? `practiced ${timesText(n)}` : "not practiced yet", comboName(c)));
+        labels.append(el("span", {textContent:c.id ?? SUPER_COMBO.caption}));
+    }
+    section.append(el("h3", {textContent:"Class combinations", style:"margin-top:20px;font-size:15px"}),
+        el("p", {className:"sub", textContent:"Times practiced"}), cols, labels);
+
+    // moves danced most, across everything practiced
+    const moveDone = new Map();
+    for(const e of practiced) for(const m of e.moves) moveDone.set(m, (moveDone.get(m) || 0) + e.done);
+    const top = [...moveDone].sort((a,b)=>b[1] - a[1] || a[0].localeCompare(b[0])).slice(0, 8);
+    if(top.length){
+        const topMax = top[0][1];
+        const grid = el("div", {className:"hbars"});
+        for(const [name, n] of top){
+            grid.append(el("span", {className:"name", textContent:name}),
+                tip(el("div", {className:"hbar-row"},
+                    el("div", {className:"hbar", style:`width:${n/topMax*85}%;background:var(--s-blue)`}),
+                    el("span", {className:"val", textContent:n})), `danced ${timesText(n)}`, name));
+        }
+        const never = MOVES.filter(m=>!moveDone.has(m.name)).map(m=>m.name);
+        section.append(el("h3", {textContent:"Moves you've danced most", style:"margin-top:20px;font-size:15px"}),
+            el("p", {className:"sub", textContent:"Counting every practiced combination they're in"}), grid,
+            ...(never.length ? [note(`Not practiced yet: ${listText(never)}.`)] : []));
+    }
+    return section;
+}
+
+function openStats(){
+    closeMenu();
+    hideToast();
+    dom.statsBody.replaceChildren(headlineCard(), moveUsageCard(),
+        el("div", {className:"stats-stack"}, positionsCard(), possibilitiesCard()),
+        flowCard(), practiceCard());
+    dom.statsPage.hidden = false;
+    dom.statsPage.scrollTop = 0;
+    document.body.classList.add("stats-open");
+    dom.statsClose.focus();
+}
+
+function closeStats(){
+    if(dom.statsPage.hidden) return;
+    dom.statsPage.hidden = true;
+    dom.statsTip.hidden = true;
+    document.body.classList.remove("stats-open");
+    dom.statsBtn.focus({preventScroll:true});
+}
+
+function showTip(target){
+    const node = target.closest?.("[data-tip]");
+    if(!node || !dom.statsPage.contains(node)){ dom.statsTip.hidden = true; return; }
+    dom.statsTip.replaceChildren(el("strong", {textContent:node.dataset.tip}),
+        ...(node.dataset.tipLabel ? [node.dataset.tipLabel] : []));
+    dom.statsTip.hidden = false;
+    const r = node.getBoundingClientRect(), t = dom.statsTip.getBoundingClientRect();
+    const left = Math.min(Math.max(8, r.left + r.width/2 - t.width/2), innerWidth - t.width - 8);
+    const top = r.top - t.height - 8 > 60 ? r.top - t.height - 8 : r.bottom + 8;
+    dom.statsTip.style.left = `${left}px`;
+    dom.statsTip.style.top = `${top}px`;
+}
+
+dom.statsBtn.addEventListener("click", openStats);
+dom.statsClose.addEventListener("click", closeStats);
+dom.statsPage.addEventListener("pointerover", e=>showTip(e.target));
+dom.statsPage.addEventListener("focusin", e=>showTip(e.target));
+dom.statsPage.addEventListener("pointerleave", ()=>{ dom.statsTip.hidden = true; });
+dom.statsPage.addEventListener("focusout", ()=>{ dom.statsTip.hidden = true; });
+dom.statsPage.addEventListener("scroll", ()=>{ dom.statsTip.hidden = true; }, {passive:true});
+document.addEventListener("keydown", e=>{ if(e.key === "Escape") closeStats(); });
 
 // =====================================================================
 // Wiring
